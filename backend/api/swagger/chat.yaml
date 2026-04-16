@@ -1,0 +1,48 @@
+tags:
+  - name: Chat
+    description: AI 對話（GPT-4o 行程推薦）
+summary: 送出訊息給 AI，取得行程建議或對話回覆
+consumes:
+  - application/json
+produces:
+  - application/json
+security:
+  - BearerAuth: []
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: 使用者輸入的訊息
+          example: "幫我規劃 5 天東京行程，預算 5 萬台幣，2 人，喜歡美食和文化"
+        conversationId:
+          type: string
+          description: 繼續舊對話的 ID（選填，不填則建立新對話）
+          example: "a1b2c3d4-..."
+responses:
+  200:
+    description: AI 回覆成功
+    schema:
+      type: object
+      properties:
+        conversationId:
+          type: string
+        reply:
+          type: object
+          properties:
+            type:
+              type: string
+              enum: [text, itinerary]
+              description: "text = 純文字回覆；itinerary = 結構化行程 JSON"
+            content:
+              description: "type=text 時為字串；type=itinerary 時為行程物件"
+  400:
+    description: 缺少 message 欄位
+  401:
+    description: 未授權

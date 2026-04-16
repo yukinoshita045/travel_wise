@@ -1,0 +1,61 @@
+tags:
+  - name: Budget
+    description: 預算分配計算
+summary: 根據行程資訊計算各類費用分配
+consumes:
+  - application/json
+produces:
+  - application/json
+security:
+  - BearerAuth: []
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      required: [totalBudget, days, travelers, spots]
+      properties:
+        totalBudget:
+          type: number
+          example: 50000
+        days:
+          type: integer
+          example: 5
+        travelers:
+          type: integer
+          example: 2
+        currency:
+          type: string
+          default: TWD
+          example: TWD
+        spots:
+          type: array
+          items:
+            type: object
+            properties:
+              name:        { type: string }
+              ticketPrice: { type: number }
+responses:
+  200:
+    description: 預算計算成功
+    schema:
+      type: object
+      properties:
+        totalBudget:  { type: number }
+        currency:     { type: string }
+        perPerson:    { type: number }
+        breakdown:
+          type: object
+          properties:
+            accommodation: { type: object }
+            food:          { type: object }
+            transport:     { type: object }
+            activities:    { type: object }
+            emergency:     { type: object }
+        warnings:     { type: array, items: { type: string } }
+        isOverBudget: { type: boolean }
+  400:
+    description: 缺少必填欄位
+  401:
+    description: 未授權

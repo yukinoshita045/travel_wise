@@ -1,0 +1,34 @@
+# .gitignore
+
+# ── 個人開發筆記（不 commit）──
+TODO.md
+
+# ── 環境變數（絕對不能 commit）──
+.env
+*.env.local
+*.env.production
+
+# ── Node.js ──
+node_modules/
+dist/
+build/
+.vite/
+*.log
+
+# ── Python ──
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# ── Firebase ──
+firebase_config.json
+serviceAccountKey.json
+
+# ── IDE ──
+.vscode/settings.json
+.idea/
+.DS_Store

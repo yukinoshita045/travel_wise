@@ -1,0 +1,85 @@
+tags:
+  - name: Fatigue
+    description: 飛行疲勞分析（SAFTE 模型）
+summary: 分析航班疲勞指數，並提供各因子可解釋性說明
+consumes:
+  - application/json
+produces:
+  - application/json
+security:
+  - BearerAuth: []
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      required:
+        - departureTimezone
+        - arrivalTimezone
+        - flightDurationHours
+      properties:
+        departureTimezone:
+          type: string
+          example: "Asia/Taipei"
+        arrivalTimezone:
+          type: string
+          example: "Europe/London"
+        flightDurationHours:
+          type: number
+          example: 14.5
+        layoverCount:
+          type: integer
+          default: 0
+          example: 1
+        isRedEye:
+          type: boolean
+          default: false
+          example: true
+        travelers:
+          type: array
+          description: 每位旅行者的健康基礎資料
+          items:
+            type: object
+            properties:
+              age:
+                type: integer
+                example: 65
+              fitnessLevel:
+                type: string
+                enum: [high, medium, low]
+                example: low
+responses:
+  200:
+    description: 疲勞分析成功
+    schema:
+      type: object
+      properties:
+        baseScore:
+          type: number
+          description: 基礎疲勞分數（0-100）
+        travelers:
+          type: array
+          items:
+            type: object
+            properties:
+              index:        { type: integer }
+              multiplier:   { type: number }
+              finalScore:   { type: number }
+              level:        { type: string, description: "低/中等/高/極高" }
+              recoverHours: { type: integer }
+        breakdown:
+          type: object
+          properties:
+            timezoneCrossed: { type: integer }
+            timezoneScore:   { type: number }
+            flightScore:     { type: number }
+            layoverScore:    { type: number }
+            redEyeScore:     { type: number }
+        explanations:
+          type: array
+          items: { type: string }
+  400:
+    description: 缺少必填欄位
+  401:
+    description: 未授權

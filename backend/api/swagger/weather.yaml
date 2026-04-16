@@ -1,0 +1,50 @@
+tags:
+  - name: Weather
+    description: 天氣查詢與衣物建議（Open-Meteo）
+summary: 查詢目的地天氣預報與穿衣建議
+produces:
+  - application/json
+security:
+  - BearerAuth: []
+parameters:
+  - in: query
+    name: destination
+    type: string
+    required: true
+    description: 目的地城市名稱
+    example: Tokyo
+  - in: query
+    name: date
+    type: string
+    required: false
+    description: 查詢日期（YYYY-MM-DD），不填則查今日
+    example: "2025-10-01"
+responses:
+  200:
+    description: 天氣查詢成功
+    schema:
+      type: object
+      properties:
+        destination:
+          type: string
+        forecast:
+          type: array
+          items:
+            type: object
+            properties:
+              date:        { type: string }
+              tempMax:     { type: number }
+              tempMin:     { type: number }
+              humidity:    { type: number }
+              feelsLike:   { type: number }
+              condition:   { type: string }
+        clothingSuggestion:
+          type: string
+          description: AI 生成的衣物建議文字
+        alerts:
+          type: array
+          items: { type: string }
+  400:
+    description: 缺少 destination 參數
+  401:
+    description: 未授權
