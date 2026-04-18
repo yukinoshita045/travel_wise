@@ -1,0 +1,31 @@
+tags:
+  - Places
+summary: 取得景點詳細資料（OpenTripMap xid）
+security:
+  - BearerAuth: []
+parameters:
+  - in: path
+    name: xid
+    type: string
+    required: true
+    example: "Q11443"
+    description: OpenTripMap 景點唯一識別碼
+responses:
+  200:
+    description: 景點詳細資料
+    schema:
+      type: object
+      properties:
+        xid:         { type: string }
+        name:        { type: string }
+        kinds:       { type: string }
+        lat:         { type: number }
+        lon:         { type: number }
+        description: { type: string }
+        image:       { type: string }
+        wikipedia:   { type: string }
+        openingHours: { type: string }
+  404:
+    description: 景點不存在
+  401:
+    description: 未授權

@@ -55,6 +55,11 @@ SYSTEM_PROMPT = """你是 TravelWise 的 AI 旅遊顧問，專門幫助使用者
   ]
 }
 
+## 工具使用原則
+- 先用 search_spots 取得景點清單（一次即可）
+- 只對「最終排入行程」的景點呼叫 get_spot_detail（每天最多 2 個）
+- 不需要查詢所有景點的 detail，search_spots 結果已足夠規劃行程
+
 ## 每日景點數量原則
 - 步行：3~4 個景點
 - 大眾運輸：4~5 個景點
@@ -205,14 +210,13 @@ def handle_chat_message(
     messages.append({"role": "user", "content": message})
     save_message(conversation_id, user_uid, "user", message)
 
-    # ── GPT Function Calling 迴圈（最多 5 輪）──
-    for _ in range(5):
+    # ── GPT Function Calling 迴圈（最多 10 輪）──
+    for _ in range(10):
         response = client.chat.completions.create(
             model=MODEL,
             messages=messages,
             tools=TOOLS,
             tool_choice="auto",
-            temperature=0.7,
         )
         gpt_msg = response.choices[0].message
 
@@ -227,7 +231,7 @@ def handle_chat_message(
             }
 
         # 執行 tool call，把結果加回 messages
-        messages.append(gpt_msg)
+        messages.append(gpt_msg.model_dump())  # ChatCompletionMessage → dict
         for tc in gpt_msg.tool_calls:
             args = json.loads(tc.function.arguments)
             logger.info(f"[Tool Call] {tc.function.name}({args})")

@@ -34,5 +34,7 @@ def register_error_handlers(app):
 
     @app.errorhandler(500)
     def internal_error(e):
-        logger.error(f"Internal Server Error: {e}")
-        return jsonify({"error": "伺服器內部錯誤，請稍後再試", "code": 500}), 500
+        import traceback
+        tb = traceback.format_exc()
+        logger.error(f"Internal Server Error: {e}\n{tb}")
+        return jsonify({"error": str(e), "traceback": tb, "code": 500}), 500
