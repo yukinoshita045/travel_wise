@@ -1,0 +1,71 @@
+tags:
+  - Itinerary
+summary: AI 生成行程推薦
+description: |
+  根據旅遊條件呼叫 GPT（含 Function Calling 查詢真實景點），
+  生成完整行程並存入 MongoDB，回傳行程資料。
+security:
+  - BearerAuth: []
+consumes:
+  - application/json
+parameters:
+  - in: body
+    name: body
+    required: true
+    schema:
+      type: object
+      required:
+        - destination
+        - days
+      properties:
+        destination:
+          type: string
+          example: Tokyo
+        days:
+          type: integer
+          example: 5
+        travelers:
+          type: integer
+          example: 2
+        budget:
+          type: number
+          example: 50000
+        transportMode:
+          type: string
+          example: 大眾運輸
+        maxCommuteMinutes:
+          type: integer
+          example: 30
+        preferences:
+          type: array
+          items:
+            type: string
+          example: ["文化", "美食"]
+        mustVisit:
+          type: array
+          items:
+            type: string
+          example: ["淺草寺"]
+        conversationId:
+          type: string
+          example: null
+responses:
+  201:
+    description: 行程建立成功
+    schema:
+      type: object
+      properties:
+        _id:
+          type: string
+        title:
+          type: string
+        days:
+          type: array
+          items:
+            type: object
+        budget:
+          type: object
+  400:
+    description: 缺少必要欄位
+  401:
+    description: 未授權

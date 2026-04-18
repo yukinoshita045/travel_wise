@@ -25,10 +25,12 @@ def chat():
     user_uid        = g.user["uid"]
     user_message    = data["message"]
     conversation_id = data.get("conversationId")   # 可選，繼續舊對話
+    trip_params     = data.get("tripParams")        # 可選，旅遊條件（destination/days/preferences...）
 
     result = handle_chat_message(
         user_uid=user_uid,
         message=user_message,
         conversation_id=conversation_id,
+        trip_params=trip_params,
     )
     return jsonify(result), 200

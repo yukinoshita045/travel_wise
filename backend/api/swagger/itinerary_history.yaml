@@ -1,0 +1,25 @@
+tags:
+  - Itinerary
+summary: 取得使用者歷史行程
+description: 列出目前使用者所有已儲存的行程
+security:
+  - BearerAuth: []
+responses:
+  200:
+    description: 行程列表
+    schema:
+      type: object
+      properties:
+        itineraries:
+          type: array
+          items:
+            type: object
+            properties:
+              _id:
+                type: string
+              title:
+                type: string
+              createdAt:
+                type: string
+  401:
+    description: 未授權
