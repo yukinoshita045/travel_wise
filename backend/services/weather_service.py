@@ -18,23 +18,146 @@ def get_weather_and_clothing(destination: str, date: str | None = None) -> dict:
     Returns: {
         "destination": "Tokyo",
         "forecast": [ { "date": "...", "tempMax": 28, "tempMin": 18, "humidity": 70, "feelsLike": 30, "condition": "sunny" } ],
-        "clothingSuggestion": "建議穿著短袖上衣搭配輕薄外套，原因：體感溫度 30°C...",
+        "clothingSuggestion": "建議穿著短袖上衣搭配輕薄外套",
         "alerts": []
     }
     """
-    # TODO:
-    # 1. 先查 Redis 快取（cache key: f"weather:{destination}:{date}"）
-    # 2. 呼叫 Open-Meteo geocoding API 取得經緯度
-    # 3. 呼叫 Open-Meteo forecast API 取得 7 天預報
-    # 4. 計算體感溫度（Heat Index 或 Wind Chill 依氣溫選擇）
-    # 5. 用規則或 GPT 生成衣物建議文字
-    # 6. 存入 Redis 快取
-    raise NotImplementedError("weather_service 尚未實作")
+    cache_key = f"weather:{destination}:{date or 'today'}"
+    cached = get_cache(cache_key)
+    if cached:
+        return cached
+
+    # 1. Geocoding
+    lat, lon, resolved_name = _geocode(destination)
+
+    # 2. 取得 7 天預報
+    forecast_url = (
+        f"{OPEN_METEO_BASE}/forecast"
+        f"?latitude={lat}&longitude={lon}"
+        "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,"
+        "weathercode,windspeed_10m_max,relativehumidity_2m_max"
+        "&timezone=auto"
+    )
+    resp = requests.get(forecast_url, timeout=10)
+    resp.raise_for_status()
+    raw = resp.json().get("daily", {})
+
+    forecast = []
+    alerts   = []
+    for i, dt in enumerate(raw.get("time", [])):
+        t_max      = raw["temperature_2m_max"][i]
+        t_min      = raw["temperature_2m_min"][i]
+        humidity   = raw["relativehumidity_2m_max"][i]
+        wind_kmh   = raw["windspeed_10m_max"][i]
+        precip_pct = raw["precipitation_probability_max"][i]
+        wcode      = raw["weathercode"][i]
+
+        feels = _feels_like(t_max, humidity, wind_kmh)
+        cond  = _wmo_to_condition(wcode)
+
+        if precip_pct >= 70:
+            alerts.append({"date": dt, "message": f"{dt} 降雨機率 {precip_pct}%，請攜帶雨具"})
+
+        forecast.append({
+            "date":       dt,
+            "tempMax":    t_max,
+            "tempMin":    t_min,
+            "humidity":   humidity,
+            "windKmh":    wind_kmh,
+            "feelsLike":  round(feels, 1),
+            "condition":  cond,
+            "precipProb": precip_pct,
+        })
+
+    avg_feel = sum(f["feelsLike"] for f in forecast) / len(forecast) if forecast else 20
+    clothing  = _clothing_suggestion(avg_feel, any(a for a in alerts))
+
+    result = {
+        "destination":       resolved_name,
+        "forecast":          forecast,
+        "clothingSuggestion": clothing,
+        "alerts":            alerts,
+    }
+    set_cache(cache_key, result, ex=3600)   # 快取 1 小時
+    return result
+
+
+def _geocode(city: str) -> tuple[float, float, str]:
+    """Open-Meteo geocoding → (lat, lon, name)"""
+    url  = f"{GEO_BASE}/search?name={city}&count=1&language=zh&format=json"
+    resp = requests.get(url, timeout=10)
+    resp.raise_for_status()
+    results = resp.json().get("results", [])
+    if not results:
+        raise ValueError(f"找不到城市：{city}")
+    r = results[0]
+    return r["latitude"], r["longitude"], r.get("name", city)
 
 
 def _feels_like(temp_c: float, humidity: float, wind_kmh: float) -> float:
     """
-    體感溫度計算（Heat Index 公式，> 27°C 時適用）
-    TODO: 實作公式
+    體感溫度：
+    - temp > 27°C → Heat Index 公式 (Rothfusz)
+    - temp < 10°C → Wind Chill 公式
+    - 其他       → 原始溫度
     """
-    raise NotImplementedError
+    T = temp_c
+    R = humidity
+    V = wind_kmh
+
+    if T > 27:
+        HI = (
+            -8.78469475556
+            + 1.61139411 * T
+            + 2.33854883889 * R
+            - 0.14611605 * T * R
+            - 0.012308094 * T ** 2
+            - 0.0164248277778 * R ** 2
+            + 0.002211732 * T ** 2 * R
+            + 0.00072546 * T * R ** 2
+            - 0.000003582 * T ** 2 * R ** 2
+        )
+        return HI
+    elif T < 10 and V > 4.8:
+        WC = 13.12 + 0.6215 * T - 11.37 * V ** 0.16 + 0.3965 * T * V ** 0.16
+        return WC
+    else:
+        return T
+
+
+def _wmo_to_condition(code: int) -> str:
+    """WMO weathercode → 中文狀況"""
+    if code == 0:
+        return "晴天"
+    elif code in (1, 2, 3):
+        return "多雲"
+    elif code in range(45, 50):
+        return "霧"
+    elif code in range(51, 68):
+        return "雨"
+    elif code in range(71, 78):
+        return "雪"
+    elif code in range(80, 83):
+        return "陣雨"
+    elif code in range(95, 100):
+        return "雷雨"
+    return "未知"
+
+
+def _clothing_suggestion(avg_feels: float, has_rain: bool) -> str:
+    """依平均體感溫度生成衣物建議"""
+    if avg_feels >= 32:
+        base = "天氣炎熱，建議穿著輕薄透氣的短袖短褲，並注意防曬（帽子、防曬乳）"
+    elif avg_feels >= 25:
+        base = "氣溫舒適偏暖，建議穿著短袖搭配薄外套，早晚稍涼可備一件薄長袖"
+    elif avg_feels >= 15:
+        base = "氣溫涼爽，建議穿著長袖搭配薄外套或針織上衣"
+    elif avg_feels >= 5:
+        base = "天氣較冷，建議穿著厚外套或毛衣，搭配圍巾手套"
+    else:
+        base = "氣溫極低，建議穿著羽絨外套並做好全身保暖，注意防滑"
+
+    if has_rain:
+        base += "；預報有降雨，請務必攜帶雨傘或雨衣"
+
+    return base

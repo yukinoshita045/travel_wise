@@ -6,6 +6,7 @@ MongoDB 連線設定 — 仿照 LibreChat /api/db/connect.js 的 cached connecti
 
 import os
 import logging
+import certifi
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
@@ -31,9 +32,10 @@ def get_db():
         raise EnvironmentError("MONGO_URI 環境變數未設定，請確認 .env 檔案")
 
     options = {
-        "maxPoolSize":          int(os.getenv("MONGO_MAX_POOL_SIZE", 10)),
-        "minPoolSize":          int(os.getenv("MONGO_MIN_POOL_SIZE", 2)),
+        "maxPoolSize":              int(os.getenv("MONGO_MAX_POOL_SIZE", 10)),
+        "minPoolSize":              int(os.getenv("MONGO_MIN_POOL_SIZE", 2)),
         "serverSelectionTimeoutMS": 5000,
+        "tlsCAFile":                certifi.where(),
     }
 
     logger.info("初始化 MongoDB 連線...")

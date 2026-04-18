@@ -1,0 +1,22 @@
+tags:
+  - Itinerary
+summary: 刪除行程
+security:
+  - BearerAuth: []
+parameters:
+  - in: path
+    name: itinerary_id
+    required: true
+    type: string
+responses:
+  200:
+    description: 刪除成功
+    schema:
+      type: object
+      properties:
+        message:
+          type: string
+  404:
+    description: 行程不存在或無權限
+  401:
+    description: 未授權

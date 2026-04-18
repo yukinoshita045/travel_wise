@@ -1,0 +1,20 @@
+tags:
+  - Itinerary
+summary: 取得單一行程詳細資料
+security:
+  - BearerAuth: []
+parameters:
+  - in: path
+    name: itinerary_id
+    required: true
+    type: string
+    description: MongoDB ObjectId
+responses:
+  200:
+    description: 行程詳細資料
+    schema:
+      type: object
+  404:
+    description: 行程不存在或無權限
+  401:
+    description: 未授權

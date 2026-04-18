@@ -40,10 +40,69 @@ def calculate_budget(
         "isOverBudget": false
     }
     """
-    # TODO:
-    # 1. 計算景點總票價（spots 中所有 ticketPrice 加總 × travelers）
-    # 2. 若景點費用超過 activities 分配額，發出 warning
-    # 3. 計算各類別分配金額
-    # 4. 計算每人每天各類費用
-    # 5. 判斷是否超出預算
-    raise NotImplementedError("budget_service 尚未實作")
+    if total_budget <= 0:
+        total_budget = 0
+
+    warnings     = []
+    per_person   = round(total_budget / travelers, 2) if travelers else total_budget
+
+    # 各類別分配額
+    alloc = {k: round(total_budget * v, 2) for k, v in DEFAULT_RATIOS.items()}
+
+    # 景點總票價
+    spot_costs = []
+    ticket_total = 0.0
+    for s in spots:
+        price = float(s.get("ticketPrice") or s.get("ticket_price") or 0)
+        if price > 0:
+            subtotal = price * travelers
+            spot_costs.append({"name": s.get("name", ""), "pricePerPerson": price, "subtotal": subtotal})
+            ticket_total += subtotal
+
+    if ticket_total > alloc["activities"]:
+        warnings.append(
+            f"景點票價合計 {ticket_total:.0f} 超過活動預算 {alloc['activities']:.0f}，"
+            "建議增加總預算或減少付費景點"
+        )
+
+    nights = max(days - 1, 1)
+
+    breakdown = {
+        "accommodation": {
+            "total": alloc["accommodation"],
+            "perPersonPerNight": round(alloc["accommodation"] / travelers / nights, 2) if travelers and nights else 0,
+            "ratio": DEFAULT_RATIOS["accommodation"],
+        },
+        "food": {
+            "total": alloc["food"],
+            "perPersonPerDay": round(alloc["food"] / travelers / days, 2) if travelers and days else 0,
+            "ratio": DEFAULT_RATIOS["food"],
+        },
+        "transport": {
+            "total": alloc["transport"],
+            "ratio": DEFAULT_RATIOS["transport"],
+        },
+        "activities": {
+            "total": alloc["activities"],
+            "spotCosts": spot_costs,
+            "ticketTotal": ticket_total,
+            "ratio": DEFAULT_RATIOS["activities"],
+        },
+        "emergency": {
+            "total": alloc["emergency"],
+            "ratio": DEFAULT_RATIOS["emergency"],
+        },
+    }
+
+    is_over = ticket_total > alloc["activities"]
+
+    return {
+        "totalBudget":  total_budget,
+        "currency":     currency,
+        "perPerson":    per_person,
+        "days":         days,
+        "travelers":    travelers,
+        "breakdown":    breakdown,
+        "warnings":     warnings,
+        "isOverBudget": is_over,
+    }
