@@ -35,22 +35,29 @@ def get_weather_and_clothing(destination: str, date: str | None = None) -> dict:
         f"{OPEN_METEO_BASE}/forecast"
         f"?latitude={lat}&longitude={lon}"
         "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,"
-        "weathercode,windspeed_10m_max,relativehumidity_2m_max"
+        "weathercode,windspeed_10m_max"
+        "&hourly=relativehumidity_2m"
         "&timezone=auto"
     )
     resp = requests.get(forecast_url, timeout=10)
     resp.raise_for_status()
-    raw = resp.json().get("daily", {})
+    raw        = resp.json().get("daily", {})
+    raw_hourly = resp.json().get("hourly", {})
 
     forecast = []
     alerts   = []
+    hourly_humidity = raw_hourly.get("relativehumidity_2m", [])
+
     for i, dt in enumerate(raw.get("time", [])):
         t_max      = raw["temperature_2m_max"][i]
         t_min      = raw["temperature_2m_min"][i]
-        humidity   = raw["relativehumidity_2m_max"][i]
         wind_kmh   = raw["windspeed_10m_max"][i]
         precip_pct = raw["precipitation_probability_max"][i]
         wcode      = raw["weathercode"][i]
+
+        # 取當天 24 小時的平均濕度（每天 24 筆）
+        day_humidity = hourly_humidity[i*24:(i+1)*24]
+        humidity = round(sum(day_humidity) / len(day_humidity), 1) if day_humidity else 60
 
         feels = _feels_like(t_max, humidity, wind_kmh)
         cond  = _wmo_to_condition(wcode)
@@ -78,7 +85,7 @@ def get_weather_and_clothing(destination: str, date: str | None = None) -> dict:
         "clothingSuggestion": clothing,
         "alerts":            alerts,
     }
-    set_cache(cache_key, result, ex=3600)   # 快取 1 小時
+    set_cache(cache_key, result, ttl_seconds=3600)   # 快取 1 小時
     return result
 
 

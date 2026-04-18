@@ -7,7 +7,7 @@ GET /api/places/<place_id> — 景點詳細資料
 from flask import Blueprint, request, jsonify
 from flasgger import swag_from
 from utils.auth_middleware import require_auth
-from services.places_service import search_places, get_place_detail
+from services.places_service import search_spots, get_spot_detail
 
 places_bp = Blueprint("places", __name__)
 
@@ -17,27 +17,29 @@ places_bp = Blueprint("places", __name__)
 @swag_from("../swagger/places_search.yaml")
 def search():
     """
-    搜尋景點
-    Query params: query (搜尋關鍵字), location (城市名或 lat,lng)
+    搜尋景點（OpenTripMap）
+    Query params: city (城市名), preferences (逗號分隔), radius (公尺), limit (筆數)
     """
-    query    = request.args.get("query")
-    location = request.args.get("location")
+    city        = request.args.get("city")
+    preferences = request.args.get("preferences", "").split(",") if request.args.get("preferences") else []
+    radius      = int(request.args.get("radius", 5000))
+    limit       = int(request.args.get("limit", 20))
 
-    if not query:
-        return jsonify({"error": "缺少 query 參數"}), 400
+    if not city:
+        return jsonify({"error": "缺少 city 參數"}), 400
 
-    result = search_places(query=query, location=location)
+    result = search_spots(city=city, preferences=preferences, radius_m=radius, limit=limit)
     return jsonify(result), 200
 
 
-@places_bp.route("/<place_id>", methods=["GET"])
+@places_bp.route("/<xid>", methods=["GET"])
 @require_auth
 @swag_from("../swagger/places_detail.yaml")
-def place_detail(place_id):
+def place_detail(xid):
     """
-    取得景點詳細資料（評分、營業時間、票價、訂票連結）
+    取得景點詳細資料（OpenTripMap xid）
     """
-    result = get_place_detail(place_id=place_id)
+    result = get_spot_detail(xid=xid)
     if not result:
         return jsonify({"error": "景點不存在"}), 404
     return jsonify(result), 200

@@ -39,7 +39,7 @@ def geocode_city(city: str) -> tuple[float, float]:
         return cached["lat"], cached["lon"]
 
     resp = requests.get(
-        f"{OTM_BASE}/place/geoname",
+        f"{OTM_BASE}/places/geoname",
         params={"name": city, "apikey": OTM_KEY},
         timeout=10,
     )

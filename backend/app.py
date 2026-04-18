@@ -20,6 +20,8 @@ from utils.error_handlers import register_error_handlers
 
 def create_app():
     app = Flask(__name__)
+    app.config["JSON_ENSURE_ASCII"] = False  # Flask 2.x
+    app.json.ensure_ascii = False             # Flask 3.x
 
     # ── CORS（允許前端 localhost:5173 存取）──
     CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "https://your-production-domain.com"]}})

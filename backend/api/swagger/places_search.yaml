@@ -1,0 +1,58 @@
+tags:
+  - Places
+summary: 搜尋景點（OpenTripMap）
+description: |
+  依城市名稱與偏好類型搜尋附近景點。
+  preferences 可選值: 文化, 自然, 美食, 購物, 娛樂, 宗教, 歷史
+security:
+  - BearerAuth: []
+parameters:
+  - in: query
+    name: city
+    type: string
+    required: true
+    example: Tokyo
+    description: 城市名稱（英文）
+  - in: query
+    name: preferences
+    type: string
+    required: false
+    example: "文化,美食"
+    description: 偏好類型，逗號分隔
+  - in: query
+    name: radius
+    type: integer
+    required: false
+    default: 5000
+    example: 5000
+    description: 搜尋半徑（公尺）
+  - in: query
+    name: limit
+    type: integer
+    required: false
+    default: 20
+    example: 20
+    description: 回傳筆數上限
+responses:
+  200:
+    description: 景點列表
+    schema:
+      type: object
+      properties:
+        city:
+          type: string
+        spots:
+          type: array
+          items:
+            type: object
+            properties:
+              xid:        { type: string }
+              name:       { type: string }
+              kinds:      { type: string }
+              lat:        { type: number }
+              lon:        { type: number }
+              rate:       { type: number }
+  400:
+    description: 缺少 city 參數
+  401:
+    description: 未授權
