@@ -35,8 +35,14 @@ def get_db():
         "maxPoolSize":              int(os.getenv("MONGO_MAX_POOL_SIZE", 10)),
         "minPoolSize":              int(os.getenv("MONGO_MIN_POOL_SIZE", 2)),
         "serverSelectionTimeoutMS": 5000,
+        "tls":                      True,
         "tlsCAFile":                certifi.where(),
+        "tlsAllowInvalidCertificates": False,
+        # Python 3.13 + OpenSSL 3.0 與 Atlas 的 TLS 相容修正
+        "ssl_cert_reqs":            "CERT_NONE" if os.getenv("MONGO_TLS_INSECURE", "false").lower() == "true" else None,
     }
+    # 移除 None 值的選項（pymongo 不接受 None 值）
+    options = {k: v for k, v in options.items() if v is not None}
 
     logger.info("初始化 MongoDB 連線...")
     logger.info(f"連線選項: {options}")
@@ -58,7 +64,11 @@ def get_db():
 def init_db(app):
     """
     在 Flask app context 中初始化 DB，供 app.py 呼叫
+    連線失敗時只印 warning，不讓 server crash（讓其他 API 仍可運作）
     """
     with app.app_context():
-        get_db()
-        logger.info("TravelWise DB 初始化完成")
+        try:
+            get_db()
+            logger.info("TravelWise DB 初始化完成")
+        except Exception as e:
+            logger.warning(f"⚠️  MongoDB 暫時無法連線，DB 相關功能將無法使用: {e}")
