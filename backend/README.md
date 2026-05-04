@@ -1,6 +1,8 @@
-# TravelWise Backend
+# TravelWise Backend 🛠️
 
-Flask + MongoDB + OpenAI Function Calling 的旅遊行程推薦後端。
+Flask 3.x + MongoDB Atlas + OpenAI Function Calling 的旅遊行程推薦後端。
+
+> 前端卡片 Schema 與整合流程請看：[根目錄 README](../README.md)
 
 ---
 
@@ -8,67 +10,64 @@ Flask + MongoDB + OpenAI Function Calling 的旅遊行程推薦後端。
 
 ```
 backend/
-├── app.py                         # Flask 進入點，所有 Blueprint 在此註冊
-├── start_server.py                # 開發用啟動腳本（自動載入 .env）
-├── .env                           # 環境變數（不上傳 Git）
-├── .env.example                   # 環境變數範本
-├── firebase_service_account.json  # Firebase Admin SDK 金鑰（不上傳 Git）
-├── requirements.txt               # Python 套件清單
+├── app.py                          # Flask 進入點，所有 Blueprint 在此註冊
+├── start_server.py                 # 開發用啟動腳本（自動載入 .env）
+├── .env                            # 環境變數（不上傳 Git）
+├── .env.example                    # 環境變數範本
+├── requirements.txt                # Python 套件清單
 │
 ├── config/
-│   ├── database.py                # MongoDB 單例連線（仿 LibreChat connect.js）
-│   └── swagger_config.py         # Swagger UI 全域設定
+│   ├── database.py                 # MongoDB 單例連線（cached connection pool）
+│   └── swagger_config.py          # Swagger UI 全域設定
 │
 ├── api/
 │   ├── routes/
-│   │   ├── chat.py               # POST /api/chat
-│   │   ├── weather.py            # GET  /api/weather
-│   │   ├── places.py             # GET  /api/places/search, /api/places/<xid>
-│   │   ├── budget.py             # POST /api/budget/calculate
-│   │   ├── itinerary.py          # POST /api/itinerary/recommend + CRUD
-│   │   └── fatigue.py            # POST /api/fatigue/analyze（他人負責）
+│   │   ├── trip.py                 # ⭐ POST /api/trip/plan（一站式整合端點）
+│   │   ├── chat.py                 # POST /api/chat
+│   │   ├── weather.py              # GET  /api/weather
+│   │   ├── places.py               # GET  /api/places/search, /api/places/<xid>
+│   │   ├── budget.py               # POST /api/budget/calculate
+│   │   ├── itinerary.py            # POST /api/itinerary/recommend + CRUD
+│   │   └── fatigue.py              # POST /api/fatigue/analyze（隊友負責）
 │   └── swagger/
-│       ├── chat.yaml
 │       ├── weather.yaml
 │       ├── places_search.yaml
 │       ├── places_detail.yaml
 │       ├── budget.yaml
-│       ├── itinerary_recommend.yaml
-│       ├── itinerary_history.yaml
-│       ├── itinerary_get.yaml
-│       ├── itinerary_update.yaml
-│       └── itinerary_delete.yaml
+│       ├── chat.yaml
+│       └── fatigue.yaml
 │
 ├── services/
-│   ├── chat_service.py           # OpenAI Function Calling 核心
-│   ├── places_service.py         # OpenTripMap 景點搜尋
-│   ├── weather_service.py        # Open-Meteo 天氣查詢
-│   ├── budget_service.py         # 預算分配計算
-│   └── itinerary_service.py      # 行程生成與地理排序
+│   ├── chat_service.py             # OpenAI Function Calling 核心（最多 10 輪）
+│   ├── places_service.py           # OpenTripMap 景點搜尋 + Redis 快取
+│   ├── weather_service.py          # Open-Meteo 天氣查詢 + Redis 快取
+│   ├── budget_service.py           # 預算分配計算（五類比例）
+│   ├── itinerary_service.py        # 行程生成 + Nearest Neighbor 地理排序
+│   └── fatigue_service.py          # 疲勞分析（TODO，隊友實作）
 │
 ├── models/
-│   ├── conversation.py           # 對話紀錄 MongoDB CRUD
-│   ├── itinerary.py              # 行程 MongoDB CRUD
-│   └── user.py                   # 使用者 MongoDB CRUD
+│   ├── conversation.py             # 對話紀錄 MongoDB CRUD
+│   ├── itinerary.py                # 行程 MongoDB CRUD
+│   └── user.py                     # 使用者 MongoDB CRUD
 │
 └── utils/
-    ├── auth_middleware.py         # @require_auth Firebase 驗證 Decorator
-    ├── cache.py                   # Redis 快取工具（get/set，失敗時靜默忽略）
-    └── error_handlers.py          # 統一 HTTP 錯誤格式
+    ├── auth_middleware.py           # @require_auth Firebase 驗證 Decorator
+    ├── cache.py                     # Redis 快取工具（失敗時靜默忽略）
+    └── error_handlers.py            # 統一 HTTP 錯誤格式（含 traceback）
 ```
 
 ---
 
 ## ⚙️ 環境設定
 
-### 1. 建立 `.env`（複製 `.env.example`）
+### 1. 建立 `.env`
 
 ```env
 FLASK_ENV=development
 FLASK_DEBUG=true
 PORT=5001
 
-MONGO_URI=mongodb+srv://<user>:<password>@cluster0.xxx.mongodb.net/travelwise
+MONGO_URI=mongodb+srv://<user>:<password>@cluster0.xxx.mongodb.net/travelwise?retryWrites=true&w=majority
 REDIS_URL=redis://localhost:6379/0
 
 FIREBASE_SERVICE_ACCOUNT_PATH=./firebase_service_account.json
@@ -83,23 +82,28 @@ OPENTRIPMAP_API_KEY=...
 ### 2. 安裝套件
 
 ```bash
-pip3 install flask flask-cors flasgger pymongo certifi redis firebase-admin openai requests python-dotenv pytest
+pip3 install -r requirements.txt
 ```
 
-### 3. 啟動伺服器
+### 3. 啟動 Redis
 
 ```bash
-cd backend
+brew install redis && brew services start redis
+redis-cli ping   # → PONG
+```
+
+### 4. 啟動 Server
+
+```bash
 python3 start_server.py
 ```
 
-成功後會看到：
 ```
 ✅ TravelWise backend running at http://localhost:5001
 📖 Swagger UI: http://localhost:5001/api/docs
 ```
 
-> ⚠️ macOS Port 5000 被 AirPlay 佔用，請改用 5001
+> ⚠️ macOS Port 5000 被 AirPlay 佔用，請改用 **5001**
 
 ---
 
@@ -111,7 +115,7 @@ python3 start_server.py
 Authorization: Bearer <Firebase ID Token>
 ```
 
-**測試時**可用 `TEST_MODE` 跳過 Firebase 驗證（自動注入 `uid: test-user-001`）：
+**開發測試**可用 TEST_MODE 跳過 Firebase（自動注入 `uid: test-user-001`）：
 
 ```
 Authorization: Bearer TEST_MODE
@@ -128,370 +132,260 @@ http://localhost:5001/api/docs
 
 ---
 
-### 1. `GET /api/weather` — 天氣查詢
+### ⭐ `POST /api/trip/plan` — 一站式旅遊規劃
 
-**Input（Query Params）**
+對應使用者流程步驟 3~9，前端只需呼叫這一支。
 
-| 參數 | 必填 | 類型 | 說明 | 範例 |
-|------|------|------|------|------|
-| `destination` | ✅ | string | 目的地城市（英文） | `Tokyo` |
-| `date` | ❌ | string | 保留參數，目前未使用 | `2026-04-18` |
+**內部執行順序：**
+```
+1. 必填欄位驗證
+2. 步驟 4：城市驗證（search_spots 試查，失敗回 422）
+3. 步驟 7：疲勞分析
+   ├── 有帶 fatigueScore → _build_fatigue_from_score()
+   └── 沒帶 → _compute_fatigue()（目前為 placeholder，score=50）
+4. 步驟 6：組成 trip_params → recommend_itinerary()（GPT Function Calling）
+5. 步驟 8+9：回傳 { destination, fatigue, itinerary, weather }
+```
 
-**curl 範例**
+**Request**
+```json
+{
+  "flight": {
+    "departureCity": "Taipei",
+    "arrivalCity": "Tokyo",
+    "departureTime": "2026-06-01T08:00:00",
+    "arrivalTime": "2026-06-01T12:30:00",
+    "departureTz": "Asia/Taipei",
+    "arrivalTz": "Asia/Tokyo",
+    "flightDurationHours": 3.5,
+    "layoverCount": 0,
+    "isRedEye": false
+  },
+  "travelers": [
+    { "ageGroup": "adult", "fitnessLevel": "medium" }
+  ],
+  "trip": {
+    "days": 3,
+    "budget": 60000,
+    "travelStyle": "觀光景點",
+    "transportMode": "大眾運輸",
+    "mustVisit": ["淺草寺"]
+  },
+  "fatigueScore": 50
+}
+```
+
+| 欄位 | 必填 | 說明 |
+|------|------|------|
+| `flight.arrivalCity` | ✅ | 目的地（英文）|
+| `flight.flightDurationHours` | ✅ | 飛行時數 |
+| `travelers[].ageGroup` | ✅ | child / adult / senior |
+| `travelers[].fitnessLevel` | ✅ | low / medium / high |
+| `trip.days` | ✅ | 旅遊天數 |
+| `trip.travelStyle` | ✅ | 輕鬆休閒 / 觀光景點 |
+| `fatigueScore` | ❌ | 0–100，由隊友模組計算後帶入 |
+
+**travelStyle → preferences 對照**
+
+| travelStyle | 自動對應偏好 |
+|-------------|------------|
+| 輕鬆休閒 | 自然、美食、購物 |
+| 觀光景點 | 文化、歷史、宗教、拍照 |
+
+**城市驗證失敗回傳（422）**
+```json
+{
+  "error": "無法識別目的地城市，請確認城市名稱（建議使用英文）",
+  "field": "flight.arrivalCity"
+}
+```
+
+**curl 測試範例**
+```bash
+curl -X POST "http://localhost:5001/api/trip/plan" \
+  -H "Authorization: Bearer TEST_MODE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flight": {"departureCity":"Taipei","arrivalCity":"Tokyo","flightDurationHours":3.5,"layoverCount":0,"isRedEye":false,"departureTz":"Asia/Taipei","arrivalTz":"Asia/Tokyo"},
+    "travelers": [{"ageGroup":"adult","fitnessLevel":"medium"}],
+    "trip": {"days":3,"budget":60000,"travelStyle":"觀光景點","transportMode":"大眾運輸"}
+  }'
+```
+
+---
+
+### `GET /api/weather` — 天氣查詢
+
+**Query Params**
+
+| 參數 | 必填 | 說明 |
+|------|------|------|
+| `destination` | ✅ | 城市名（英文），如 `Tokyo` |
+
 ```bash
 curl "http://localhost:5001/api/weather?destination=Tokyo" \
   -H "Authorization: Bearer TEST_MODE"
 ```
 
-**Output**
-```json
-{
-  "destination": "東京",
-  "forecast": [
-    {
-      "date": "2026-04-18",
-      "tempMax": 21.0,
-      "tempMin": 8.6,
-      "humidity": 75.9,
-      "feelsLike": 21.0,
-      "windKmh": 7.7,
-      "condition": "多雲",
-      "precipProb": 0
-    }
-  ],
-  "clothingSuggestion": "氣溫涼爽，建議穿著長袖搭配薄外套；預報有降雨，請攜帶雨傘",
-  "alerts": [
-    { "date": "2026-04-24", "message": "2026-04-24 降雨機率 76%，請攜帶雨具" }
-  ]
-}
-```
-
-| 欄位 | 說明 |
-|------|------|
-| `forecast[].condition` | 晴天 / 多雲 / 雨 / 雪 / 雷雨 / 霧 |
-| `forecast[].feelsLike` | 體感溫度（>27°C 用 Heat Index，<10°C 用 Wind Chill）|
-| `clothingSuggestion` | 依平均體感溫度自動生成衣物建議 |
-| `alerts` | 降雨機率 ≥70% 時觸發警告 |
+**Response Schema → WeatherCard**（詳見根目錄 README）
 
 ---
 
-### 2. `GET /api/places/search` — 景點搜尋
+### `GET /api/places/search` — 景點搜尋
 
-**Input（Query Params）**
+**Query Params**
 
-| 參數 | 必填 | 類型 | 預設 | 說明 | 範例 |
-|------|------|------|------|------|------|
-| `city` | ✅ | string | — | 城市名（英文） | `Tokyo` |
-| `preferences` | ❌ | string | 全部 | 逗號分隔偏好類型 | `文化,美食` |
-| `radius` | ❌ | integer | 5000 | 搜尋半徑（公尺） | `5000` |
-| `limit` | ❌ | integer | 20 | 回傳筆數上限 | `10` |
+| 參數 | 必填 | 預設 | 說明 |
+|------|------|------|------|
+| `city` | ✅ | — | 城市名（英文）|
+| `preferences` | ❌ | 全部 | 逗號分隔：文化,歷史,美食,自然,購物,娛樂,宗教 |
+| `radius` | ❌ | 5000 | 搜尋半徑（公尺）|
+| `limit` | ❌ | 20 | 回傳筆數 |
 
-**preferences 可選值**
-
-| 值 | 對應 OpenTripMap kinds |
-|----|----------------------|
-| `文化` | cultural |
-| `自然` | natural |
-| `美食` | foods |
-| `購物` | shops |
-| `娛樂` | amusements |
-| `宗教` | religion |
-| `歷史` | historic |
-
-**curl 範例**
 ```bash
 curl "http://localhost:5001/api/places/search?city=Tokyo&preferences=文化,美食&limit=5" \
   -H "Authorization: Bearer TEST_MODE"
 ```
 
-**Output**
-```json
-[
-  {
-    "xid": "Q963514",
-    "name": "Tōkaidō",
-    "kinds": "cultural,interesting_places",
-    "lat": 35.689,
-    "lon": 139.691,
-    "rate": 3,
-    "dist": 11.13
-  }
-]
-```
-
-| 欄位 | 說明 |
-|------|------|
-| `xid` | OpenTripMap 唯一 ID，用於查詳情 |
-| `rate` | 景點評分（1–3，3 最高）|
-| `dist` | 距離城市中心（公尺）|
-
 ---
 
-### 3. `GET /api/places/<xid>` — 景點詳情
+### `GET /api/places/<xid>` — 景點詳情
 
-**Input（Path）**
-
-| 參數 | 說明 |
-|------|------|
-| `xid` | 從 `/places/search` 取得的景點 ID |
-
-**curl 範例**
 ```bash
 curl "http://localhost:5001/api/places/Q963514" \
   -H "Authorization: Bearer TEST_MODE"
 ```
 
-**Output**
-```json
-{
-  "xid": "Q963514",
-  "name": "Tōkaidō",
-  "kinds": "cultural,interesting_places",
-  "lat": 35.689,
-  "lon": 139.691,
-  "description": "The Tōkaidō road was the most important...",
-  "image": "https://upload.wikimedia.org/...",
-  "wikipedia": "https://en.wikipedia.org/wiki/T%C5%8Dkaid%C5%8D",
-  "opening_hours": "",
-  "address": {
-    "city": "新宿區",
-    "country": "日本 (Japan)",
-    "postcode": "163-8001",
-    "road": "議事堂通り"
-  }
-}
-```
-
 ---
 
-### 4. `POST /api/budget/calculate` — 預算分配
+### `POST /api/budget/calculate` — 預算分配
 
-**分配比例（固定）**
+**預算五類比例（固定）**
 
 | 類別 | 比例 |
 |------|------|
-| 住宿（accommodation） | 35% |
-| 餐費（food） | 25% |
-| 交通（transport） | 15% |
-| 活動/景點（activities） | 20% |
-| 緊急備用（emergency） | 5% |
+| 住宿 | 35% |
+| 餐費 | 25% |
+| 交通 | 15% |
+| 活動/景點票價 | 20% |
+| 緊急備用 | 5% |
 
-**Input（Body JSON）**
-
+**Request**
 ```json
 {
-  "totalBudget": 50000,
-  "days": 5,
+  "totalBudget": 60000,
+  "days": 3,
   "travelers": 2,
   "currency": "TWD",
   "spots": [
-    { "name": "淺草寺", "ticketPrice": 0 },
-    { "name": "東京晴空塔", "ticketPrice": 2100 },
-    { "name": "teamLab", "ticketPrice": 3200 }
+    { "name": "晴空塔", "ticketPrice": 2100 },
+    { "name": "淺草寺", "ticketPrice": 0 }
   ]
 }
 ```
 
-| 欄位 | 必填 | 說明 |
-|------|------|------|
-| `totalBudget` | ✅ | 總預算（數字）|
-| `days` | ✅ | 天數 |
-| `travelers` | ✅ | 人數 |
-| `spots` | ✅ | 景點清單（空陣列也可）|
-| `currency` | ❌ | 幣別，預設 TWD |
-
-**curl 範例**
-```bash
-curl -X POST "http://localhost:5001/api/budget/calculate" \
-  -H "Authorization: Bearer TEST_MODE" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "totalBudget": 50000,
-    "days": 5,
-    "travelers": 2,
-    "spots": [
-      {"name": "晴空塔", "ticketPrice": 2100},
-      {"name": "teamLab", "ticketPrice": 3200}
-    ]
-  }'
-```
-
-**Output**
-```json
-{
-  "totalBudget": 50000,
-  "currency": "TWD",
-  "perPerson": 25000,
-  "days": 5,
-  "travelers": 2,
-  "breakdown": {
-    "accommodation": { "total": 17500, "perPersonPerNight": 2187.5, "ratio": 0.35 },
-    "food":          { "total": 12500, "perPersonPerDay": 1250.0,   "ratio": 0.25 },
-    "transport":     { "total": 7500,  "ratio": 0.15 },
-    "activities": {
-      "total": 10000,
-      "ticketTotal": 10600,
-      "spotCosts": [
-        { "name": "晴空塔", "pricePerPerson": 2100, "subtotal": 4200 },
-        { "name": "teamLab", "pricePerPerson": 3200, "subtotal": 6400 }
-      ],
-      "ratio": 0.20
-    },
-    "emergency": { "total": 2500, "ratio": 0.05 }
-  },
-  "warnings": ["景點票價合計 10600 超過活動預算 10000，建議增加總預算或減少付費景點"],
-  "isOverBudget": true
-}
-```
-
-> ⚠️ 景點票價合計 > activities 預算時，`isOverBudget: true`，`warnings` 會有說明
-
 ---
 
-### 5. `POST /api/chat` — AI 對話（含 Function Calling）
+### `POST /api/chat` — AI 對話
 
-GPT 會自動決定是否呼叫以下工具：
+GPT 自動呼叫工具：
 
-| 工具名稱 | 說明 |
-|---------|------|
-| `search_spots` | 搜尋城市附近景點（OpenTripMap）|
-| `get_spot_detail` | 取得景點詳細資料（含描述、圖片、Wikipedia）|
+| 工具 | 說明 |
+|------|------|
+| `search_spots` | 搜尋城市景點（OpenTripMap）|
+| `get_spot_detail` | 取得景點詳情（含圖片、Wikipedia）|
 
-**Input（Body JSON）**
-
+**Request**
 ```json
 {
-  "message": "東京有哪些好玩的文化景點？",
+  "message": "幫我規劃 3 天東京行程，喜歡文化和美食",
   "conversationId": null,
   "tripParams": {
     "destination": "Tokyo",
     "days": 3,
     "travelers": 2,
-    "budget": 50000,
-    "transportMode": "大眾運輸",
-    "maxCommuteMinutes": 30,
-    "preferences": ["文化", "美食"],
-    "mustVisit": ["淺草寺"]
+    "preferences": ["文化", "美食"]
   }
 }
 ```
-
-| 欄位 | 必填 | 說明 |
-|------|------|------|
-| `message` | ✅ | 使用者輸入的訊息 |
-| `conversationId` | ❌ | 繼續舊對話（null = 開新對話）|
-| `tripParams` | ❌ | 旅遊條件，注入 GPT system context |
-| `tripParams.preferences` | ❌ | 文化 / 自然 / 美食 / 購物 / 娛樂 / 宗教 / 歷史 |
-
-**curl 範例**
-```bash
-curl -X POST "http://localhost:5001/api/chat" \
-  -H "Authorization: Bearer TEST_MODE" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "message": "幫我規劃 3 天東京行程，喜歡文化和美食",
-    "tripParams": {
-      "destination": "Tokyo",
-      "days": 3,
-      "travelers": 2,
-      "preferences": ["文化", "美食"]
-    }
-  }'
-```
-
-**Output — type: text（GPT 純文字回覆）**
-```json
-{
-  "conversationId": "4ef2c7e8-2466-4160-ad3d-88d3c48e98e8",
-  "reply": {
-    "type": "text",
-    "content": "以下是查詢後挑出的東京景點：\n1) xid: W297192269\n   名稱：明治神宮內苑..."
-  }
-}
-```
-
-**Output — type: itinerary（GPT 輸出完整行程 JSON 時）**
-```json
-{
-  "conversationId": "4ef2c7e8-...",
-  "reply": {
-    "type": "itinerary",
-    "content": {
-      "title": "東京 3 天文化美食之旅",
-      "days": [
-        {
-          "day": 1,
-          "spots": [
-            { "name": "明治神宮", "xid": "W297192269", "lat": 35.676, "lon": 139.699 }
-          ]
-        }
-      ]
-    }
-  }
-}
-```
-
-> 💡 `conversationId` 回傳後儲存，下次請求帶入即可繼續同一對話（MongoDB 長期記憶）
 
 ---
 
-### 6. `POST /api/itinerary/recommend` — 一鍵生成行程
+### `POST /api/itinerary/recommend` — AI 生成行程
 
-**內部執行流程：**
+**內部流程：**
 ```
 1. 組成自然語言 prompt
-2. 呼叫 handle_chat_message()（含 Function Calling 查景點）
-3. 解析 GPT 回傳的行程 JSON
-4. Nearest Neighbor 演算法排序景點（減少通勤）
+2. GPT Function Calling（最多 10 輪）
+3. 解析行程 JSON
+4. Nearest Neighbor 地理排序景點
 5. 存入 MongoDB
-6. 回傳完整行程
+6. 回傳 ItineraryCard
 ```
 
-**Input（Body JSON）**
-
+**Request**
 ```json
 {
   "destination": "Tokyo",
-  "days": 5,
+  "days": 3,
   "travelers": 2,
-  "budget": 50000,
+  "budget": 60000,
   "transportMode": "大眾運輸",
-  "maxCommuteMinutes": 30,
   "preferences": ["文化", "美食"],
   "mustVisit": ["淺草寺"],
-  "conversationId": null
-}
-```
-
-**Output**
-```json
-{
-  "_id": "6626ab12cde...",
-  "userUid": "firebase-uid",
-  "title": "Tokyo 5天行程",
-  "days": [
-    {
-      "day": 1,
-      "spots": [
-        { "name": "淺草寺", "xid": "N123", "lat": 35.71, "lon": 139.79 }
-      ]
-    }
-  ],
-  "budget": { "total": 50000, "currency": "TWD", "breakdown": {} },
-  "createdAt": "2026-04-18T11:30:00"
+  "fatigueContext": {
+    "finalScore": 50,
+    "level": "中等",
+    "recoverHours": 6
+  }
 }
 ```
 
 ---
 
-### 7. 行程 CRUD
+### 行程 CRUD
 
-| Method | 路由 | 說明 | Input |
-|--------|------|------|-------|
-| `GET` | `/api/itinerary/user/history` | 取得我的所有行程列表 | 無 |
-| `GET` | `/api/itinerary/<id>` | 取得單一行程詳情 | Path: MongoDB `_id` |
-| `PUT` | `/api/itinerary/<id>` | 更新行程（拖拉排序後呼叫）| Body: `{"days":[...],"title":"..."}` |
-| `DELETE` | `/api/itinerary/<id>` | 刪除行程 | Path: MongoDB `_id` |
+| Method | 路由 | 說明 |
+|--------|------|------|
+| `GET` | `/api/itinerary/user/history` | 我的所有行程 |
+| `GET` | `/api/itinerary/<id>` | 取得單一行程 |
+| `PUT` | `/api/itinerary/<id>` | 更新行程（拖拉排序後呼叫）|
+| `DELETE` | `/api/itinerary/<id>` | 刪除行程 |
+
+---
+
+### `POST /api/fatigue/analyze` — 疲勞分析（隊友模組）
+
+> ⚠️ `fatigue_service.py` 的 `analyze_fatigue()` 目前為 `NotImplementedError`，等隊友實作。
+> `POST /api/trip/plan` 已預留接口，隊友完成後只需修改 `trip.py` 的 `_compute_fatigue()` 即可。
+
+**Expected Request**
+```json
+{
+  "departureTimezone": "Asia/Taipei",
+  "arrivalTimezone": "Asia/Tokyo",
+  "flightDurationHours": 3.5,
+  "layoverCount": 0,
+  "isRedEye": false,
+  "travelers": [
+    { "ageGroup": "adult", "fitnessLevel": "medium" }
+  ]
+}
+```
+
+**Expected Response → FatigueCard Schema**
+```json
+{
+  "baseScore": 45,
+  "level": "中等",
+  "energyBattery": 65,
+  "jetLagIndex": 3,
+  "suggestedStartTime": "10:00",
+  "tripStressType": "一般行程",
+  "recoverHours": 6,
+  "explanation": "跨越 1 個時區，飛行 3.5 小時，整體疲勞屬中等。"
+}
+```
 
 ---
 
@@ -499,11 +393,7 @@ curl -X POST "http://localhost:5001/api/chat" \
 
 ### `conversations`
 ```json
-{
-  "_id": "UUID",
-  "userUid": "firebase-uid",
-  "createdAt": "2026-04-18T..."
-}
+{ "_id": "UUID", "userUid": "firebase-uid", "createdAt": "ISO8601" }
 ```
 
 ### `messages`
@@ -514,7 +404,7 @@ curl -X POST "http://localhost:5001/api/chat" \
   "userUid": "firebase-uid",
   "role": "user | assistant | tool",
   "content": "訊息內容",
-  "createdAt": "2026-04-18T..."
+  "createdAt": "ISO8601"
 }
 ```
 
@@ -522,30 +412,48 @@ curl -X POST "http://localhost:5001/api/chat" \
 ```json
 {
   "_id": "UUID",
-  "userUid": "firebase-uid",
-  "title": "東京 5 天行程",
-  "days": [ { "day": 1, "spots": [...] } ],
-  "budget": { "total": 50000, "currency": "TWD" },
-  "createdAt": "2026-04-18T...",
-  "updatedAt": "2026-04-18T..."
+  "userId": "firebase-uid",
+  "title": "3天東京行程",
+  "days": [
+    {
+      "dayNumber": 1,
+      "theme": "文化散策",
+      "spots": [
+        {
+          "xid": "Q3530518",
+          "name": "景點名稱",
+          "lat": 35.68,
+          "lon": 139.69,
+          "arrivalTime": "09:00",
+          "stayDuration": 90,
+          "ticketPrice": 0,
+          "description": "...",
+          "notes": "..."
+        }
+      ]
+    }
+  ],
+  "budget": { "total": 60000, "currency": "TWD", "breakdown": {} },
+  "createdAt": "ISO8601",
+  "updatedAt": "ISO8601"
 }
 ```
 
 ---
 
-## 🔧 技術選型
+## �� 技術選型
 
 | 項目 | 技術 | 說明 |
 |------|------|------|
-| Web 框架 | Flask 3.1 | Blueprint 模組化 |
+| Web 框架 | Flask 3.1 | Blueprint 模組化，`app.json.ensure_ascii=False` |
 | API 文件 | Flasgger (Swagger UI) | `/api/docs` |
-| 資料庫 | MongoDB Atlas | PyMongo + certifi（修 SSL）|
-| 快取 | Redis | 景點 24hr / 天氣 1hr，失敗時靜默忽略 |
-| AI | OpenAI gpt-5-mini | Function Calling 自動查景點 |
+| 資料庫 | MongoDB Atlas | PyMongo + certifi，連線失敗不 crash |
+| 快取 | Redis | 景點 24hr / 天氣 1hr，失敗靜默忽略 |
+| AI | OpenAI gpt-5-mini | Function Calling，最多 10 輪 |
 | 景點資料 | OpenTripMap | 免費，無需信用卡 |
 | 天氣資料 | Open-Meteo | 免費，無需 API Key |
-| 身份驗證 | Firebase Admin SDK | ID Token 驗證 |
-| 跨域 | Flask-CORS | 允許 localhost:5173 |
+| 身份驗證 | Firebase Admin SDK | ID Token，TEST_MODE 跳過 |
+| 跨域 | Flask-CORS | 允許 localhost:5173 + production domain |
 
 ---
 
@@ -553,10 +461,25 @@ curl -X POST "http://localhost:5001/api/chat" \
 
 | API | 狀態 | 備註 |
 |-----|------|------|
-| `GET /api/weather` | ✅ 正常 | 回傳真實 7 天預報 + 衣物建議 |
-| `GET /api/places/search` | ✅ 正常 | OpenTripMap 真實景點資料 |
-| `GET /api/places/<xid>` | ✅ 正常 | 含地址、描述、圖片、Wikipedia |
-| `POST /api/budget/calculate` | ✅ 正常 | 超預算警告正確觸發 |
-| `POST /api/chat` | ✅ 正常 | GPT Function Calling 自動查景點 |
-| `POST /api/itinerary/recommend` | ⏳ 未測 | 依賴 Chat，邏輯完整 |
-| 行程 CRUD | ⏳ 未測 | MongoDB 操作，需有行程 ID |
+| `GET /api/weather` | ✅ | 7 天真實預報，Redis 快取 |
+| `GET /api/places/search` | ✅ | OpenTripMap，Redis 快取 |
+| `GET /api/places/<xid>` | ✅ | 含地址、描述、圖片、Wikipedia |
+| `POST /api/budget/calculate` | ✅ | 超預算警告正確觸發 |
+| `POST /api/chat` | ✅ | GPT Function Calling 10 輪 |
+| `POST /api/trip/plan` | ✅ | 完整流程（城市驗證+疲勞+AI行程）|
+| `POST /api/itinerary/recommend` | ✅ | AI 行程 + Nearest Neighbor + MongoDB |
+| `GET /api/itinerary/user/history` | ✅ | MongoDB 查詢 |
+| `GET /api/itinerary/<id>` | ✅ | MongoDB 查詢 |
+| `PUT /api/itinerary/<id>` | ✅ | MongoDB 更新 |
+| `DELETE /api/itinerary/<id>` | ✅ | MongoDB 刪除 |
+| `POST /api/fatigue/analyze` | ⏳ | 等隊友疲勞模組完成 |
+
+---
+
+## ⚠️ 已知限制與注意事項
+
+1. **MongoDB Atlas IP 白名單**：每換網路環境需至 Atlas → Network Access 加新 IP
+2. **gpt-5-mini 不支援 `temperature` 參數**：已移除，勿自行加回
+3. **Python 3.13 + OpenSSL 3.0**：Atlas 連線需要 certifi，已在 `database.py` 設定
+4. **macOS Port 5000**：被 AirPlay 佔用，固定使用 **5001**
+5. **疲勞模組**：`fatigue_service.py` 目前 `raise NotImplementedError`，`/api/fatigue/analyze` 會回 500；但 `/api/trip/plan` 有 placeholder 保護，不受影響
