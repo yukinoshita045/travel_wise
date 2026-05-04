@@ -15,6 +15,7 @@ from api.routes.fatigue import fatigue_bp
 from api.routes.itinerary import itinerary_bp
 from api.routes.places import places_bp
 from api.routes.budget import budget_bp
+from api.routes.trip import trip_bp
 from utils.error_handlers import register_error_handlers
 
 
@@ -39,6 +40,7 @@ def create_app():
     app.register_blueprint(itinerary_bp,  url_prefix="/api/itinerary")
     app.register_blueprint(places_bp,     url_prefix="/api/places")
     app.register_blueprint(budget_bp,     url_prefix="/api/budget")
+    app.register_blueprint(trip_bp,       url_prefix="/api/trip")
 
     # ── 統一錯誤處理 ──
     register_error_handlers(app)
