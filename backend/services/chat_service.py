@@ -30,7 +30,9 @@ SYSTEM_PROMPT = """你是 TravelWise 的 AI 旅遊顧問，專門幫助使用者
 4. 回覆使用繁體中文
 
 ## 行程輸出格式
-當使用者要求規劃行程時，回傳以下 JSON 格式（包在 ```json ``` 中）：
+當使用者要求規劃行程時，**必須且只能**回傳以下 JSON 格式，包在 ```json ``` 標記中，不要加任何額外說明文字：
+
+```json
 {
   "type": "itinerary",
   "title": "5天東京深度文化之旅",
@@ -40,20 +42,31 @@ SYSTEM_PROMPT = """你是 TravelWise 的 AI 旅遊顧問，專門幫助使用者
       "theme": "淺草・上野文化散策",
       "spots": [
         {
-          "xid": "景點ID",
-          "name": "景點名稱",
-          "description": "簡短描述",
+          "xid": "景點的OpenTripMap ID（必填）",
+          "name": "景點名稱（必填）",
+          "description": "景點的繁體中文描述，2~3句（必填）",
           "lat": 35.71,
           "lon": 139.79,
           "arrivalTime": "09:00",
           "stayDuration": 90,
           "ticketPrice": 0,
-          "notes": "建議事項"
+          "notes": "給旅客的繁體中文建議（必填）"
         }
       ]
     }
   ]
 }
+```
+
+## 欄位規則（務必遵守）
+- `xid`：從 search_spots 結果取得，不可自行編造
+- `name`：使用原始英文名稱
+- `description`：**必須是繁體中文**，2~3 句描述景點特色
+- `arrivalTime`：格式 HH:MM（24小時制）
+- `stayDuration`：整數，單位為分鐘
+- `ticketPrice`：整數，單位為當地貨幣，免費填 0
+- `notes`：**必須是繁體中文**，提供實用建議（開放時間、注意事項等）
+- `lat` / `lon`：從 search_spots 結果取得，不可為 null
 
 ## 工具使用原則
 - 先用 search_spots 取得景點清單（一次即可）
@@ -164,17 +177,96 @@ def _build_context_message(trip_params: dict) -> str:
 
 
 def _parse_reply(text: str) -> tuple[str, object]:
-    """判斷 GPT 回覆是純文字還是行程 JSON"""
+    """
+    判斷 GPT 回覆是純文字還是行程 JSON。
+    用括號計數法正確處理巢狀 JSON，避免 regex 截斷。
+    """
     import re
-    match = re.search(r"```json\s*(\{.*?\})\s*```", text, re.DOTALL)
-    if match:
-        try:
-            data = json.loads(match.group(1))
-            if data.get("type") == "itinerary":
-                return "itinerary", data
-        except json.JSONDecodeError:
-            pass
-    return "text", text
+
+    # 找到 ```json 區塊的起始位置
+    match = re.search(r"```json\s*", text, re.DOTALL)
+    if not match:
+        return "text", text
+
+    start = match.end()
+    # 從第一個 { 開始計數括號，找到完整 JSON
+    brace_count = 0
+    json_start = None
+    json_end = None
+    for i, ch in enumerate(text[start:], start=start):
+        if ch == "{":
+            if json_start is None:
+                json_start = i
+            brace_count += 1
+        elif ch == "}":
+            brace_count -= 1
+            if brace_count == 0 and json_start is not None:
+                json_end = i + 1
+                break
+
+    if json_start is None or json_end is None:
+        return "text", text
+
+    try:
+        data = json.loads(text[json_start:json_end])
+    except json.JSONDecodeError as e:
+        logger.warning(f"[Parse] JSON 解析失敗: {e}")
+        return "text", text
+
+    if data.get("type") != "itinerary":
+        return "text", text
+
+    # ── Schema 驗證與自動補全 ──────────────────────────────
+    data = _validate_and_fill_itinerary(data)
+    return "itinerary", data
+
+
+def _validate_and_fill_itinerary(data: dict) -> dict:
+    """
+    驗證並補全行程 JSON，確保每個欄位都符合前端卡片 Schema。
+    缺少的欄位填入安全預設值，不會因 GPT 遺漏欄位而 crash。
+    """
+    data.setdefault("title", "AI 推薦行程")
+    data.setdefault("days", [])
+
+    for day in data["days"]:
+        day.setdefault("dayNumber", 0)
+        day.setdefault("theme", "")
+        day.setdefault("spots", [])
+
+        for spot in day["spots"]:
+            # 必填欄位補全
+            spot.setdefault("xid", "")
+            spot.setdefault("name", "未命名景點")
+            spot.setdefault("description", "")
+            spot.setdefault("lat", None)
+            spot.setdefault("lon", None)
+            spot.setdefault("arrivalTime", "09:00")
+            spot.setdefault("stayDuration", 60)
+            spot.setdefault("ticketPrice", 0)
+            spot.setdefault("notes", "")
+
+            # 型別強制轉換（GPT 有時輸出字串）
+            try:
+                spot["stayDuration"] = int(spot["stayDuration"])
+            except (ValueError, TypeError):
+                spot["stayDuration"] = 60
+
+            try:
+                spot["ticketPrice"] = int(spot["ticketPrice"])
+            except (ValueError, TypeError):
+                spot["ticketPrice"] = 0
+
+            try:
+                if spot["lat"] is not None:
+                    spot["lat"] = float(spot["lat"])
+                if spot["lon"] is not None:
+                    spot["lon"] = float(spot["lon"])
+            except (ValueError, TypeError):
+                spot["lat"] = None
+                spot["lon"] = None
+
+    return data
 
 
 def handle_chat_message(
