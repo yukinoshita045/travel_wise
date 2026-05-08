@@ -40,45 +40,38 @@ def _validate_city(city: str) -> bool:
 def _compute_fatigue(flight_data: dict, travelers: list) -> dict:
     """
     步驟 7：疲勞分析
-    ⚠️  PLACEHOLDER — 目前固定回傳 fatigueScore=50，等隊友完成 fatigue_service 後替換。
+    呼叫 services.fatigue_service.analyze_fatigue 進行真實運算
+    """
+    from services.fatigue_service import analyze_fatigue
+    import logging
+    logger = logging.getLogger(__name__)
 
-    預期介面（隊友需實作）：
-        from services.fatigue_service import analyze_fatigue
+    try:
+        # 將前端的 JSON 欄位對應到你的 analyze_fatigue 參數
         result = analyze_fatigue(
             departure_tz       = flight_data["departureTz"],
             arrival_tz         = flight_data["arrivalTz"],
-            flight_duration_hr = flight_data["flightDurationHours"],
-            layover_count      = flight_data.get("layoverCount", 0),
-            is_red_eye         = flight_data.get("isRedEye", False),
+            flight_duration_hr = float(flight_data["flightDurationHours"]),
+            layover_count      = int(flight_data.get("layoverCount", 0)),
+            is_red_eye         = bool(flight_data.get("isRedEye", False)),
             travelers          = travelers,
         )
         return result
 
-    目前回傳格式（與正式版相同，方便前端先對接）：
-    {
-        "baseScore": 50,                      # 0~100，越高越疲勞
-        "level": "中等",                       # 低 / 中等 / 高 / 極高
-        "recoverHours": 6,                    # 建議恢復時數
-        "suggestedStartTime": "10:00",        # 建議活動開始時間
-        "tripStressType": "一般行程",           # 高壓力行程 / 一般行程
-        "jetLagIndex": 3,                     # 時差適應指數（小時）
-        "energyBattery": 65,                  # 體力電池 %
-        "explanation": "目前為預估值，疲勞模組尚未完整整合。"
-    }
-    """
-    # TODO: 替換成真實的 fatigue_service 呼叫
-    placeholder_score = 50
-    return {
-        "baseScore":          placeholder_score,
-        "level":              "中等",
-        "recoverHours":       6,
-        "suggestedStartTime": "10:00",
-        "tripStressType":     "一般行程",
-        "jetLagIndex":        3,
-        "energyBattery":      65,
-        "explanation":        "⚠️ 目前為預估值，疲勞模組尚未完整整合。",
-        "_placeholder":       True,   # 前端可用此 flag 顯示提示訊息
-    }
+    except Exception as e:
+        logger.error(f"[Trip] 疲勞計算失敗: {e}")
+        # 萬一運算過程發生預期外錯誤，回傳安全的預設值，避免整個行程生成中斷
+        return {
+            "baseScore":          50,
+            "level":              "中等",
+            "recoverHours":       6,
+            "suggestedStartTime": "10:00",
+            "tripStressType":     "一般行程",
+            "jetLagIndex":        0,
+            "energyBattery":      65,
+            "explanation":        f"⚠️ 疲勞模組運算異常 ({str(e)})，目前顯示預估值。",
+            "_placeholder":       True, # 前端可用此 flag 顯示提示訊息
+        }
 
 
 # ── 主端點 ────────────────────────────────────────────────────
