@@ -3,12 +3,16 @@ api/routes/fatigue.py
 POST /api/fatigue/analyze — 飛行疲勞分析（SAFTE 模型）
 """
 
+
 from flask import Blueprint, request, jsonify, g
 from flasgger import swag_from
 from utils.auth_middleware import require_auth
 from services.fatigue_service import analyze_fatigue
 
+
 fatigue_bp = Blueprint("fatigue", __name__)
+
+
 
 
 @fatigue_bp.route("/analyze", methods=["POST"])
@@ -22,11 +26,13 @@ def fatigue_analyze():
     if not data:
         return jsonify({"error": "缺少請求 body"}), 400
 
+
     # 必填欄位驗證
     required = ["departureTimezone", "arrivalTimezone", "flightDurationHours"]
     missing = [f for f in required if f not in data]
     if missing:
         return jsonify({"error": f"缺少必填欄位: {missing}"}), 400
+
 
     result = analyze_fatigue(
         departure_tz       = data["departureTimezone"],
