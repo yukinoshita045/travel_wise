@@ -3,16 +3,13 @@ api/routes/trip.py
 POST /api/trip/plan — 一站式旅遊規劃端點（步驟 3~9）
 
 使用者流程：
-  步驟 3  輸入航班資料（出發/抵達城市、起降時間、轉機次數）
+  步驟 3  輸入航班資料（出發/抵達城市、起降時間、轉機次數、是否補眠）
   步驟 4  後端驗證城市可辨識
   步驟 5  旅遊偏好（輕鬆休閒 / 觀光景點）
   步驟 6  AI 生成 Day by Day 行程
-  步驟 7  後端自動計算疲勞分數、時差、年齡加權（使用者看不到）
+  步驟 7  後端自動計算疲勞分數、時差、年齡加權（已正式啟用）
   步驟 8  回傳時差適應指數、體力電池、建議活動開始時間、行程壓力類型
   步驟 9  前端顯示行程總覽，使用者確認後存入 DB（呼叫 /api/itinerary 存檔）
-
-NOTE ── fatigueScore 目前為 placeholder（固定回傳 50）
-        等疲勞指數模組完成後，替換 _compute_fatigue() 內容即可。
 """
 
 from flask import Blueprint, request, jsonify, g
@@ -36,7 +33,7 @@ def _validate_city(city: str) -> bool:
         return False
 
 
-# ── 疲勞計算 placeholder ──────────────────────────────────────
+# ── 疲勞計算 (正式版) ──────────────────────────────────────
 def _compute_fatigue(flight_data: dict, travelers: list) -> dict:
     """
     步驟 7：疲勞分析
@@ -55,6 +52,7 @@ def _compute_fatigue(flight_data: dict, travelers: list) -> dict:
             layover_count      = int(flight_data.get("layoverCount", 0)),
             is_red_eye         = bool(flight_data.get("isRedEye", False)),
             travelers          = travelers,
+            has_napped         = bool(flight_data.get("hasNapped", False)), # 補眠參數
         )
         return result
 
@@ -86,26 +84,27 @@ def plan_trip():
         "flight": {
             "departureCity":    "Taipei",
             "arrivalCity":      "Tokyo",
-            "departureTime":    "2026-06-01T08:00:00",   // 當地時間 ISO 8601
+            "departureTime":    "2026-06-01T08:00:00",
             "arrivalTime":      "2026-06-01T12:30:00",
             "departureTz":      "Asia/Taipei",
             "arrivalTz":        "Asia/Tokyo",
             "flightDurationHours": 3.5,
             "layoverCount":     0,
-            "isRedEye":         false
+            "isRedEye":         false,
+            "hasNapped":        true    
         },
         "travelers": [
-            { "ageGroup": "adult", "fitnessLevel": "medium" },  // ageGroup: child/adult/senior
+            { "ageGroup": "adult", "fitnessLevel": "medium" }, 
             { "ageGroup": "senior", "fitnessLevel": "low" }
         ],
         "trip": {
             "days":          5,
             "budget":        80000,
-            "travelStyle":   "觀光景點",   // 輕鬆休閒 / 觀光景點
+            "travelStyle":   "觀光景點",
             "transportMode": "大眾運輸",
-            "mustVisit":     ["淺草寺"]    // 選填
+            "mustVisit":     ["淺草寺"]
         },
-        "fatigueScore": 50    // 選填，若隊友模組已完成可直接帶入，否則由後端 placeholder 計算
+        "fatigueScore": 50    // 選填，若前端想強制覆蓋則帶入
     }
 
     Response (步驟 8):
@@ -143,15 +142,16 @@ def plan_trip():
             "field": "flight.arrivalCity"
         }), 422
 
-    # ── 步驟 7：疲勞分析（placeholder / 或前端直接帶入 fatigueScore）──
+    # ── 步驟 7：疲勞分析 ──────────────────────────────────────
     if "fatigueScore" in data:
-        # 前端或隊友模組已算好，直接用
+        # 前端強制帶入時使用
         external_score = int(data["fatigueScore"])
         fatigue_result = _build_fatigue_from_score(external_score)
-        logger.info(f"[Trip] 使用外部 fatigueScore={external_score}")
+        logger.info(f"[Trip] 使用外部強制 fatigueScore={external_score}")
     else:
+        # 正式進入 SAFTE 疲勞計算大腦
         fatigue_result = _compute_fatigue(flight, travelers)
-        logger.info(f"[Trip] Placeholder fatigueScore={fatigue_result['baseScore']}")
+        logger.info(f"[Trip] 計算出疲勞指數 baseScore={fatigue_result['baseScore']}")
 
     # ── 步驟 5/6：組成 tripParams 並呼叫 AI 生成行程 ──────────
     # 偏好映射：旅遊風格 → OpenTripMap 偏好標籤
@@ -194,8 +194,7 @@ def plan_trip():
 
 def _build_fatigue_from_score(score: int) -> dict:
     """
-    隊友模組算好 fatigueScore 後，前端直接帶入時，
-    由這裡補全其他展示欄位。
+    當前端強制傳入 fatigueScore 時，由這裡補全其他展示欄位。
     """
     if score < 30:
         level, recover, battery, start_time, stress = "低", 4, 85, "09:00", "一般行程"

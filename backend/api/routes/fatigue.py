@@ -34,6 +34,7 @@ def fatigue_analyze():
         flight_duration_hr = data["flightDurationHours"],
         layover_count      = data.get("layoverCount", 0),
         is_red_eye         = data.get("isRedEye", False),
-        travelers          = data.get("travelers", []),   # [{"age": 65, "fitnessLevel": "low"}, ...]
+        travelers          = data.get("travelers", []), 
+        has_napped         = data.get("hasNapped", False) 
     )
     return jsonify(result), 200

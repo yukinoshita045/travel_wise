@@ -1,0 +1,42 @@
+# ── TravelWise Docker Compose ──
+# 啟動方式：docker compose up --build
+# 前端開發者照常在 frontend/ 跑 npm run dev，不需要進容器
+
+services:
+
+  # ── Redis 快取（景點 / 天氣）──
+  redis:
+    image: redis:7-alpine
+    container_name: travelwise_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ── Flask 後端 ──
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: travelwise_backend
+    ports:
+      - "5001:5000"
+    env_file:
+      - ./backend/.env           # 組員自行從 .env.example 複製並填寫
+    environment:
+      # Redis 指向容器內的 redis service（覆蓋 .env 的 localhost 設定）
+      REDIS_URL: redis://redis:6379/0
+      # 開發模式：跳過 Firebase 驗證，不需要帶 Authorization header
+      FLASK_TESTING: "true"
+    volumes:
+      # 掛載 firebase service account（不 commit，但本機需要這個檔案）
+      - ./backend/firebase_service_account.json:/app/firebase_service_account.json:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+

@@ -1,15 +1,18 @@
 import pytz
 from datetime import datetime
 
-# ── 疲勞因子權重常數 ──
+
+# 疲勞因子權重常數
 WEIGHTS = {
     "per_timezone_crossed":     3.0,   # 每跨越 1 個時區 +3 分
     "per_hour_flight":          1.5,   # 每小時飛行 +1.5 分
     "per_layover":             15.0,   # 每次轉機 +15 分
     "red_eye_penalty":         20.0,   # 紅眼航班 +20 分
+    "nap_recovery":            -5.0,   # 補眠恢復 -5 分
 }
 
-# ── 旅行者疲勞衰減係數（依年齡與運動習慣）──
+
+# 旅行者疲勞衰減係數（依年齡與運動習慣）
 TRAVELER_MULTIPLIERS = {
     ("young", "high"):   0.7,   # 年輕 + 高運動量
     ("young", "medium"): 0.8,
@@ -22,7 +25,9 @@ TRAVELER_MULTIPLIERS = {
     ("senior", "low"):   1.5,   # 高齡 + 無運動習慣（最高負擔）
 }
 
+
 MAX_SCORE = 100
+
 
 def analyze_fatigue(
     departure_tz: str,
@@ -31,6 +36,7 @@ def analyze_fatigue(
     layover_count: int = 0,
     is_red_eye: bool = False,
     travelers: list = [],
+    has_napped: bool = False,
 ) -> dict:
     try:
         # 1. 計算時區差距（用 pytz 解析）
@@ -39,29 +45,35 @@ def analyze_fatigue(
         tz_arr = pytz.timezone(arrival_tz).localize(now).utcoffset().total_seconds() / 3600
         tz_diff = abs(tz_arr - tz_dep)
 
+
         # 2. 依 WEIGHTS 計算各因子分數
         timezone_score = tz_diff * WEIGHTS["per_timezone_crossed"]
         flight_score = flight_duration_hr * WEIGHTS["per_hour_flight"]
         layover_score = layover_count * WEIGHTS["per_layover"]
         red_eye_score = WEIGHTS["red_eye_penalty"] if is_red_eye else 0
 
-        # 3. 加總為 base_score
+
+        # 3. 加總為 raw_base_score，並處理補眠扣抵
         raw_base_score = timezone_score + flight_score + layover_score + red_eye_score
+        if has_napped:
+            raw_base_score = max(0, raw_base_score + WEIGHTS["nap_recovery"])
+
 
         # 4. 對每位旅行者套用 multiplier，計算 final_score
         processed_travelers = []
         max_final_score = 0
-        
+       
         for idx, t in enumerate(travelers):
             age = t.get("ageGroup", "adult")
             fitness = t.get("fitnessLevel", "medium")
             # 取得對應倍率，找不到則預設 1.0
-            multiplier = TRAVELER_MULTIPLIERS.get((age, fitness), 1.0) 
+            multiplier = TRAVELER_MULTIPLIERS.get((age, fitness), 1.0)
             final_score = min(raw_base_score * multiplier, MAX_SCORE)
-            
+           
             # 找出整團人中最累的分數，作為行程建議基準
             if final_score > max_final_score:
                 max_final_score = final_score
+
 
             processed_travelers.append({
                 "index": idx,
@@ -69,9 +81,16 @@ def analyze_fatigue(
                 "finalScore": int(final_score)
             })
 
+
         # 5. 依分數決定等級與建議恢復時間
         representative_score = int(max_final_score if processed_travelers else raw_base_score)
         level, recover, battery, start_time, stress = _get_level(representative_score)
+
+
+        # 若有補眠，額外回充 15% 體力電池
+        if has_napped:
+            battery = min(100, battery + 15)
+
 
         # 6. 生成可讀的解釋文字
         explanations = [
@@ -82,8 +101,10 @@ def analyze_fatigue(
             explanations.append(f"轉機 {layover_count} 次，增加疲勞 {int(layover_score)} 分")
         if is_red_eye:
             explanations.append(f"紅眼航班導致睡眠品質下降，增加 {int(red_eye_score)} 分")
+        if has_napped:
+            explanations.append(f"偵測到已進行補眠，有效恢復 {battery}% 體力電池並降低疲勞指數")
 
-        # 組裝成前端與 docstring 雙重兼容的回傳格式
+
         return {
             "baseScore": representative_score,
             "level": level,
@@ -94,7 +115,7 @@ def analyze_fatigue(
             "recoverHours": recover,
             "explanation": "；".join(explanations) + f"。綜合評估為{level}壓力。",
             "_placeholder": False,
-            
+           
             "travelers": processed_travelers,
             "breakdown": {
                 "timezoneCrossed": int(tz_diff),
@@ -106,6 +127,7 @@ def analyze_fatigue(
             "explanations": explanations
         }
 
+
     except Exception as e:
         # 防呆：報錯時回傳 Placeholder 50
         return {
@@ -115,10 +137,11 @@ def analyze_fatigue(
         }
 
 
+
+
 def _get_level(score: float) -> tuple:
     """
     依分數回傳（等級文字, 建議恢復小時數, 電池趴數, 建議開始時間, 行程類型）
-    對應專案規格書分級對照
     """
     if score >= 75:
         return ("極高", 24, 25, "13:00", "高壓力行程")
