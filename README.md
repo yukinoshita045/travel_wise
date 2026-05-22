@@ -4,6 +4,8 @@
 > **Group H｜期末專案**  
 > 資管四 B10705037 關凱欣、經濟四 B11303045 林鼎鈞、外文二 B13102010 李艾蓁、B12106001 林奕睿、圖資四 B11106054 蔡怡萱、資管三 B12705024 吳宇平
 
+> 📅 **最後更新：2026-05-22**　｜　✅ 所有 API 測試通過　｜　😴 疲勞模組（SAFTE）已正式整合
+
 ---
 
 ## 📌 專案簡介
@@ -32,14 +34,16 @@ TravelWise 是一套整合 **AI 行程規劃、飛行疲勞生理模型、即時
 ## 🏗️ 技術架構
 
 ```
-前端 (Frontend)   →  React + Vite + TailwindCSS
+前端 (Frontend)   →  Vue 3 + Vite（frontend/ 目錄）
 後端 (Backend)    →  Python Flask 3.x (REST API, Blueprint 模組化)
 資料庫            →  MongoDB Atlas (PyMongo)
 快取              →  Redis（景點 24hr / 天氣 1hr）
-AI                →  OpenAI gpt-5-mini（Function Calling 自動查景點）
+AI                →  OpenAI gpt-4o-mini（Function Calling 自動查景點）
 景點資料          →  OpenTripMap（免費 API）
 天氣資料          →  Open-Meteo（免費，無需 Key）
 身份驗證          →  Firebase Admin SDK（ID Token）
+容器化            →  Docker Compose（Redis + Flask 後端，一鍵啟動）
+疲勞模型          →  SAFTE 模型（時區差、飛行時長、轉機、紅眼、年齡加權）
 ```
 
 ---
@@ -59,17 +63,54 @@ AI                →  OpenAI gpt-5-mini（Function Calling 自動查景點）
 | `GET`  | `/api/itinerary/<id>` | 取得單一行程 |
 | `PUT`  | `/api/itinerary/<id>` | 更新行程 |
 | `DELETE` | `/api/itinerary/<id>` | 刪除行程 |
-| `POST` | `/api/fatigue/analyze` | 疲勞分析（隊友模組）|
+| `POST` | `/api/fatigue/analyze` | 疲勞分析（SAFTE 模型）|
+| `GET`  | `/api/flight/info` | 航班編號查詢（自動填入表單）|
+| `GET`  | `/api/currency/rates` | 取得匯率列表 |
+| `POST` | `/api/currency/convert` | 金額換算 |
 
 > 📖 完整 Swagger UI：`http://localhost:5001/api/docs`
 
 ---
 
-## 🚀 快速開始
+## 🚀 快速開始（Docker — 推薦）
+
+### 需求
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- `backend/.env`（向林鼎鈞索取）
+- `backend/firebase_service_account.json`（向林鼎鈞索取）
+
+### 一鍵啟動
+```bash
+git clone git@github.com:yukinoshita045/travel_wise.git
+cd travel_wise
+# 將 .env 和 firebase_service_account.json 放到 backend/ 目錄下
+docker compose up --build
+```
+
+```
+✅ TravelWise backend running at http://localhost:5001
+📖 Swagger UI: http://localhost:5001/api/docs
+```
+
+> ⚠️ macOS Port 5000 被 AirPlay 佔用，後端統一使用 **5001**
+
+### 更新 / 拉最新程式碼
+```bash
+git pull
+docker compose up --build   # 重新 build 確保套件同步
+```
+
+### 停止
+```bash
+docker compose down
+```
+
+---
+
+## 🔧 本機開發（不用 Docker）
 
 ### 環境需求
 - Python >= 3.11
-- Node.js >= 18
 - Redis：`brew install redis && brew services start redis`
 - MongoDB Atlas（需將本機 IP 加入白名單）
 
@@ -81,14 +122,9 @@ pip3 install -r requirements.txt
 python3 start_server.py
 ```
 
-```
-✅ TravelWise backend running at http://localhost:5001
-📖 Swagger UI: http://localhost:5001/api/docs
-```
+> `FLASK_TESTING=true` 已在 docker-compose 設定，不需要帶 Authorization header
 
-> ⚠️ macOS Port 5000 被 AirPlay 佔用，請改用 **5001**
-
-### 測試用認證 Header
+### 測試用認證 Header（非 Docker 環境）
 ```
 Authorization: Bearer TEST_MODE
 ```
@@ -367,11 +403,14 @@ Authorization: Bearer TEST_MODE
 | `GET /api/places/<xid>` | ✅ | 含地址、圖片、Wikipedia |
 | `POST /api/budget/calculate` | ✅ | 超預算警告正確觸發 |
 | `POST /api/chat` | ✅ | GPT Function Calling 自動查景點 |
-| `POST /api/trip/plan` | ✅ | 城市驗證 + 疲勞 + AI 行程完整流程 |
+| `POST /api/trip/plan` | ✅ | 城市驗證 + 疲勞（SAFTE 真實計算）+ AI 行程完整流程 |
 | `POST /api/itinerary/recommend` | ✅ | AI 生成行程 + 存 MongoDB |
 | `GET /api/itinerary/user/history` | ✅ | MongoDB 正常 |
 | `GET /api/itinerary/<id>` | ✅ | MongoDB 正常 |
-| `POST /api/fatigue/analyze` | ⏳ | 等隊友疲勞模組完成 |
+| `POST /api/fatigue/analyze` | ✅ | **SAFTE 模型正式版，`_placeholder: false`** |
+| `GET /api/flight/info` | ✅ | 需設定 `AVIATIONSTACK_API_KEY` |
+| `GET /api/currency/rates` | ✅ | 即時匯率，Redis 快取 1hr |
+| `POST /api/currency/convert` | ✅ | 支援 TWD/JPY/USD/EUR 等 11 種幣別 |
 
 ---
 
@@ -381,27 +420,41 @@ Authorization: Bearer TEST_MODE
 |------|--------|------|
 | Flask 後端骨架 + 所有 API | 林鼎鈞 | ✅ |
 | `POST /api/trip/plan` 整合端點 | 林鼎鈞 | ✅ |
-| 前端 React 卡片元件 | 其他組員 | 進行中 |
-| `POST /api/fatigue/analyze` 疲勞模組 | 待確認 | ⏳ placeholder 中 |
+| Docker Compose 容器化 | 林鼎鈞 | ✅ |
+| `POST /api/fatigue/analyze` SAFTE 疲勞模組 | 隊友 | ✅ 已整合 |
+| `GET /api/flight/info` 航班查詢 | 隊友 Janet | ✅ 已整合 |
+| `GET /api/currency/rates` + `POST /api/currency/convert` 匯率換算 | 林鼎鈞 | ✅ |
+| 前端 Vue 3 卡片元件 + Chat Panel | 其他組員 | 進行中 |
 
-### ⚙️ 疲勞模組接手說明
+### ⚙️ 疲勞模組 — 欄位對照（前端參考）
 
-完成 `fatigue_service.py` 後，只需修改 `backend/api/routes/trip.py` 中的 `_compute_fatigue()` 一個函式：
+`/api/trip/plan` 的 request body 中，`flight` 物件支援 `hasNapped`（選填）：
 
-```python
-def _compute_fatigue(flight_data, travelers):
-    from services.fatigue_service import analyze_fatigue
-    return analyze_fatigue(
-        departure_tz       = flight_data["departureTz"],
-        arrival_tz         = flight_data["arrivalTz"],
-        flight_duration_hr = flight_data["flightDurationHours"],
-        layover_count      = flight_data.get("layoverCount", 0),
-        is_red_eye         = flight_data.get("isRedEye", False),
-        travelers          = travelers,
-    )
+```json
+"flight": {
+  ...
+  "hasNapped": false   // ← 選填，乘客是否已補眠
+}
 ```
 
-回傳格式需包含：`baseScore, level, energyBattery, jetLagIndex, suggestedStartTime, tripStressType, recoverHours, explanation`
+單獨呼叫疲勞分析時（`POST /api/fatigue/analyze`），欄位名稱略有不同：
+
+```json
+{
+  "departureTimezone": "Asia/Taipei",   // ← 注意：不是 departureTz
+  "arrivalTimezone":   "Asia/Tokyo",    // ← 注意：不是 arrivalTz
+  "flightDurationHours": 3.5,
+  "layoverCount": 0,
+  "isRedEye": false,
+  "hasNapped": false,
+  "travelers": [
+    { "ageGroup": "adult",  "fitnessLevel": "medium" },
+    { "ageGroup": "senior", "fitnessLevel": "low" }
+  ]
+}
+```
+
+回傳的 `_placeholder` 為 `false` 表示真實 SAFTE 計算結果。
 
 ---
 

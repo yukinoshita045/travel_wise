@@ -26,12 +26,14 @@ services:
     ports:
       - "5001:5000"
     env_file:
-      - ./backend/.env           # 組員自行從 .env.example 複製並填寫
+      - ./backend/.env           
     environment:
       # Redis 指向容器內的 redis service（覆蓋 .env 的 localhost 設定）
       REDIS_URL: redis://redis:6379/0
       # 開發模式：跳過 Firebase 驗證，不需要帶 Authorization header
       FLASK_TESTING: "true"
+      # 航班 API key（可留空，flight/info 端點會回 400 提示）
+      # AVIATIONSTACK_API_KEY: ""   # ← 填入後取消此行註解
     volumes:
       # 掛載 firebase service account（不 commit，但本機需要這個檔案）
       - ./backend/firebase_service_account.json:/app/firebase_service_account.json:ro

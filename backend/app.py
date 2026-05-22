@@ -17,7 +17,8 @@ from api.routes.places import places_bp
 from api.routes.budget import budget_bp
 from api.routes.trip import trip_bp
 from utils.error_handlers import register_error_handlers
-from api.routes.flight import flight_bp # 新增航班資訊功能
+from api.routes.flight import flight_bp
+from api.routes.currency import currency_bp
 
 
 def create_app():
@@ -42,7 +43,8 @@ def create_app():
     app.register_blueprint(places_bp,     url_prefix="/api/places")
     app.register_blueprint(budget_bp,     url_prefix="/api/budget")
     app.register_blueprint(trip_bp,       url_prefix="/api/trip")
-    app.register_blueprint(flight_bp, url_prefix="/api/flight") # 新增航班資訊功能
+    app.register_blueprint(flight_bp,     url_prefix="/api/flight")
+    app.register_blueprint(currency_bp,   url_prefix="/api/currency")
 
     # ── 統一錯誤處理 ──
     register_error_handlers(app)

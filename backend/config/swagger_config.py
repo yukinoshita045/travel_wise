@@ -60,9 +60,10 @@ Authorization: Bearer <Firebase ID Token>
             "type": "apiKey",
             "name": "Authorization",
             "in": "header",
-            "description": "Firebase ID Token，格式：Bearer <token>"
+            "description": "Firebase ID Token，格式：Bearer <token>。開發測試可用：Bearer TEST_MODE"
         }
     },
+    "security": [{"BearerAuth": []}],
     "consumes": ["application/json"],
     "produces": ["application/json"],
 }
