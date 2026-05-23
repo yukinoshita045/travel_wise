@@ -3,7 +3,52 @@ import requests
 from datetime import datetime
 import pytz # 處理時區相減問題
 
+import airportsdata
+import pycountry
+
+# 載入全球機場資料庫 (以 IATA 代碼為 Key)
+AIRPORTS = airportsdata.load('IATA')
+
+# 自訂名稱修正字典
+COUNTRY_NAME_OVERRIDES = {
+    "TW": "Taiwan",
+    "US": "USA",
+    "GB": "UK",
+    "KR": "South Korea",
+    "RU": "Russia"
+}
+
+def get_airport_details(iata_code: str) -> dict:
+    """
+    輸入機場縮寫 (如 NRT)，自動從全球開源庫回傳城市、國家與時區
+    """
+    if not iata_code:
+        return {"city": "Unknown", "country": "Unknown", "timezone": "UTC"}
+
+    iata_code = iata_code.upper()
+    airport_info = AIRPORTS.get(iata_code)
+    
+    # 如果真的連全球資料庫都查不到，就只好退回預設值
+    if not airport_info:
+        return {"city": iata_code, "country": "Unknown", "timezone": "UTC"}
+        
+    country_code = airport_info.get("country", "")
+    
+    # 取得國家名稱：先看修正字典 -> 再查 pycountry -> 最後回傳代碼
+    if country_code in COUNTRY_NAME_OVERRIDES:
+        country_name = COUNTRY_NAME_OVERRIDES[country_code]
+    else:
+        country_obj = pycountry.countries.get(alpha_2=country_code)
+        country_name = country_obj.name if country_obj else country_code
+
+    return {
+        "city": airport_info.get("city", iata_code),
+        "country": country_name,
+        "timezone": airport_info.get("tz", "UTC")
+    }
+
 # 機場縮寫與國家/城市對應
+"""
 AIRPORT_DB = {
     "NRT": {"city": "Tokyo", "country": "Japan", "timezone": "Asia/Tokyo"},
     "HND": {"city": "Tokyo", "country": "Japan", "timezone": "Asia/Tokyo"},
@@ -21,6 +66,7 @@ AIRPORT_DB = {
     "HKG": {"city": "Hong Kong", "country": "Hong Kong", "timezone": "Asia/Hong_Kong"},
     "ICN": {"city": "Seoul", "country": "South Korea", "timezone": "Asia/Seoul"},
 }
+"""
 
 def fetch_flight_info(flight_number: str) -> dict:
     """
@@ -58,18 +104,18 @@ def fetch_flight_info(flight_number: str) -> dict:
     if not dep_code or not arr_code:
         raise ValueError(f"航班 {flight_number} 的起降機場代碼不完整，無法進行評估")
 
-    # 直接讀取 DB 或 API 的預設值
-    db_dep = AIRPORT_DB.get(dep_code, {})
-    db_arr = AIRPORT_DB.get(arr_code, {})
+    # 直接讀取全球機場資料庫
+    db_dep = get_airport_details(dep_code)
+    db_arr = get_airport_details(arr_code)
 
-    final_dep_country = db_dep.get("country") or dep_data.get("timezone", "Unknown").split("/")[0]
-    final_arr_country = db_arr.get("country") or arr_data.get("timezone", "Unknown").split("/")[0]
+    final_dep_country = db_dep["country"]
+    final_arr_country = db_arr["country"]
     
-    final_dep_city = db_dep.get("city") or dep_data.get("airport", dep_code)
-    final_arr_city = db_arr.get("city") or arr_data.get("airport", arr_code)
+    final_dep_city = db_dep["city"] if db_dep["city"] != dep_code else dep_data.get("airport", dep_code)
+    final_arr_city = db_arr["city"] if db_arr["city"] != arr_code else arr_data.get("airport", arr_code)
 
-    final_dep_tz = db_dep.get("timezone", dep_data.get("timezone", "UTC"))
-    final_arr_tz = db_arr.get("timezone", arr_data.get("timezone", "UTC"))
+    final_dep_tz = db_dep["timezone"] if db_dep["timezone"] != "UTC" else dep_data.get("timezone", "UTC")
+    final_arr_tz = db_arr["timezone"] if db_arr["timezone"] != "UTC" else arr_data.get("timezone", "UTC")
 
     # 解析起降時間字串 (ISO 8601 格式處理)
     dep_time_str = dep_data.get("scheduled", "")
