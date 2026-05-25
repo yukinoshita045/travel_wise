@@ -1,9 +1,9 @@
 <script setup>
 import { ref, computed } from 'vue'
-import PackingButton from '../components/item/AddItemButton.vue'
-import AddItemModal from '../components/item/AddItemModal.vue'
-import ShoppingListModal from '../components/shopping/ShoppingListModal.vue'
-import ShoppingButton from '../components/shopping/ShoppingButton.vue'
+import PackingButton from '../components/AddItemButton.vue'
+import AddItemModal from '../components/AddItemModal.vue'
+import ShoppingListModal from '../components/ShoppingListModal.vue'
+import ShoppingButton from '../components/ShoppingButton.vue'
 
 import {
   Luggage,

@@ -1,9 +1,9 @@
 <script setup>
 import { ref } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
-import AddItineraryModal from '../components/itinerary/AddItineraryModal.vue'
-import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.vue'
-import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
+import AddItineraryModal from '../components/itineraryarydItineraryModal.vue'
+import DetailItineraryModal from '../components/DetailItineraryModal.vue'
+import EditItineraryModal from '../components/EditItineraryModal.vue'
 
 const selectedDay = ref('Day 1')
 const openMenu = ref(null)
