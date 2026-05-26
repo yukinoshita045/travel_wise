@@ -1,8 +1,9 @@
 <template>
-  <TravelDashboard />
+  <!-- <TravelDashboard /> -->
   <!-- <ItineraryPage /> -->
   <!-- <FlightPage />   -->
   <!-- <ItemPage /> -->
+  <TripOverviewPage />
 </template>
 
 <script setup>
@@ -11,4 +12,5 @@ import TravelDashboard from './TravelDashboard.vue';
 import ItineraryPage from './pages/ItineraryPage.vue';
 import FlightPage from './pages/FlightPage.vue';
 import ItemPage from './pages/ItemPage.vue';  
+import TripOverviewPage from './pages/TripOverviewPage.vue';
 </script>
