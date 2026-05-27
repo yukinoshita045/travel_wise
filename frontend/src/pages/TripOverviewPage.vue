@@ -1,21 +1,32 @@
 <template>
-  <div class="min-h-screen bg-[#f4f7fb] px-[8vw] pb-10 font-sans text-[#263245] max-[900px]:px-4 max-[900px]:pb-[30px]">
+  <div class="min-h-screen bg-[#f4f7fb] px-[8vw] pb-10 pt-24 font-sans text-[#263245] max-[900px]:px-4 max-[900px]:pb-[30px]">
+    <Navbar />
+
+    <div class="mb-4 flex justify-end">
+      <button
+        @click="router.push('/')"
+        class="rounded-full bg-[#94A3B8] px-4 py-2 text-sm font-medium text-white shadow transition hover:opacity-90"
+      >
+        ← 返回
+      </button>
+    </div>
 
     <div
-      class="h-[190px] rounded-b-[24px] bg-[linear-gradient(to_bottom,rgba(255,255,255,0),rgba(255,255,255,.15)),url('https://images.unsplash.com/photo-1570459027562-4a916cc6113f?q=80&w=1400')] bg-cover bg-center max-[900px]:h-[150px]"
+      class="h-[190px] rounded-b-[24px] bg-cover bg-center max-[900px]:h-[150px]"
+      :style="{ backgroundImage: `linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,.15)), url(${trip.coverImage})` }"
     ></div>
 
     <section class="mt-3 grid grid-cols-2 gap-[14px] max-[900px]:grid-cols-1">
       <div class="flex h-[70px] items-center rounded-[22px] border-[1.5px] border-[#94a9c5] bg-white px-[22px] shadow-[0_8px_20px_rgba(49,74,107,.06)]">
         <span class="mr-4 text-[26px]">📍</span>
         <div>
-          <h1 class="text-2xl font-bold">Tokyo, Japan</h1>
-          <p class="mt-1 text-[15px] text-slate-500">2026/06/14-2026/06/19・共6天</p>
+          <h1 class="text-2xl font-bold">{{ trip.destination }}</h1>
+          <p class="mt-1 text-[15px] text-slate-500">{{ trip.dates.replace(', ', '・') }}</p>
         </div>
       </div>
 
       <div class="relative h-[70px] rounded-[22px] border-[1.5px] border-[#94a9c5] bg-white px-[22px] pt-2.5 shadow-[0_8px_20px_rgba(49,74,107,.06)]">
-        <p class="text-[13px] text-[#7b8ba1]">行程筆記：</p>
+        <p class="text-[13px] text-[#7b8ba1]">{{ trip.note }}</p>
         <div class="mt-2.5 h-px bg-[#9aabc2]"></div>
         <div class="mt-2.5 h-px w-[82%] bg-[#9aabc2]"></div>
         <button class="absolute right-[18px] top-5 bg-transparent text-2xl text-[#8da0bb]">
@@ -28,7 +39,9 @@
       <div
         v-for="card in summaryCards"
         :key="card.title"
+        @click="handleSummaryCardClick(card)"
         class="relative h-[120px] rounded-[22px] bg-white p-4 shadow-[0_8px_20px_rgba(49,74,107,.06)]"
+        :class="card.action || card.path ? 'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(49,74,107,.10)]' : ''"
       >
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2.5 text-[13px] text-[#7f8fa7]">
@@ -53,6 +66,7 @@
 
         <button
           v-if="card.showPlus"
+          @click.stop="handleSummaryPlusClick(card)"
           class="absolute bottom-3 right-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#27c77a] text-2xl text-white transition hover:scale-110 hover:bg-[#1fb86d]"
         >
           ＋
@@ -69,7 +83,9 @@
       <div
         v-for="day in days"
         :key="day.id"
+        @click="router.push(`/trip/${trip.id}/itinerary`)"
         class="flex h-[500px] w-[calc((100%-42px)/4)] min-w-[280px] shrink-0 flex-col rounded-[22px] bg-white p-[18px] shadow-[0_8px_20px_rgba(49,74,107,.06)] max-[900px]:w-full"
+        :class="'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(49,74,107,.10)]'"
       >
         <div class="flex items-start justify-between">
           <div>
@@ -98,164 +114,182 @@
             </div>
 
             <div class="flex min-h-[92px] items-center gap-3 rounded-[14px] bg-[#f6f8fb] p-[14px]">
-              <img
-                :src="item.image"
-                class="h-[72px] w-[72px] shrink-0 rounded-lg object-cover"
-              />
+              <div class="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-lg bg-slate-200">
+                <img
+                  v-if="item.image"
+                  :src="item.image"
+                  :alt="getItemTitle(item)"
+                  class="h-full w-full object-cover"
+                />
+              </div>
 
               <div class="min-w-0 flex-1">
-                <h3 class="truncate text-lg font-bold">{{ item.name }}</h3>
-                <p class="mt-1.5 text-xs text-[#8494aa]">{{ item.stay }}</p>
+                <h3 class="truncate text-lg font-bold">{{ getItemTitle(item) }}</h3>
+                <p class="mt-1.5 line-clamp-2 text-xs text-[#8494aa]">
+                  {{ getItemDescription(item) }}
+                </p>
               </div>
             </div>
 
-            <div class="mt-2.5 text-xs text-[#8798af]">
-              🚆 {{ item.move }}
+            <div class="mt-2.5 flex items-center justify-between gap-2 text-xs text-[#8798af]">
+              <span>{{ getStayText(item) }}</span>
+              <span v-if="item.move">🚆 {{ item.move }}</span>
             </div>
           </div>
         </div>
       </div>
     </section>
 
+    <AddItemModal
+      :show="showPackingModal"
+      :day-options="dayOptions"
+      :category-options="categoryOptions"
+      @close="showPackingModal = false"
+      @submit="addPackingItem"
+    />
+
+    <ShoppingListModal
+      v-model="shoppingItems"
+      :show="showShoppingModal"
+      @close="showShoppingModal = false"
+    />
+
   </div>
 </template>
 
 <script setup>
-const summaryCards = [
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import Navbar from '../components/Navbar.vue'
+import AddItemModal from '../components/item/AddItemModal.vue'
+import ShoppingListModal from '../components/shopping/ShoppingListModal.vue'
+import { getTripOrDefault } from '../data/travelStore.js'
+
+const route = useRoute()
+const router = useRouter()
+const trip = computed(() => getTripOrDefault(route.params.id))
+const showPackingModal = ref(false)
+const showShoppingModal = ref(false)
+
+const allPackingItems = computed(() =>
+  Object.values(trip.value.packingItems || {}).flatMap((day) => day.items || [])
+)
+
+const dayOptions = computed(() =>
+  Object.entries(trip.value.packingItems || {}).map(([day, data]) => ({
+    day,
+    date: data.date,
+  }))
+)
+
+const categoryOptions = computed(() => {
+  const categories = []
+
+  allPackingItems.value.forEach((item) => {
+    if (item.category && !categories.includes(item.category)) {
+      categories.push(item.category)
+    }
+  })
+
+  return categories
+})
+
+const shoppingItems = computed({
+  get: () => trip.value.shoppingItems || [],
+  set: (items) => {
+    trip.value.shoppingItems = items
+  },
+})
+
+const firstFlight = computed(() => trip.value.flights?.[0])
+
+const summaryCards = computed(() => [
   {
     title: '航班資訊',
-    heading: 'CI108 中華航空',
-    texts: ['TPE 14:35 → NRT 19:00']
+    heading: firstFlight.value ? `${firstFlight.value.flightNumber} ${firstFlight.value.airline}` : '尚未新增航班',
+    texts: firstFlight.value
+      ? [`${firstFlight.value.departure.time} → ${firstFlight.value.arrival.time}`]
+      : ['點此管理航班'],
+    path: `/trip/${trip.value.id}/flights`
   },
   {
     title: '準備清單',
-    count: 31,
-    texts: ['○ 電子交通卡（Suica）', '○ 大容量行動電源與充電線'],
-    showPlus: true
+    count: allPackingItems.value.length,
+    texts: allPackingItems.value.slice(0, 2).map((item) => `○ ${item.name}`),
+    showPlus: true,
+    plusAction: 'openPackingModal',
+    path: `/trip/${trip.value.id}/items`
   },
   {
     title: '購物清單',
-    count: 12,
-    texts: ['○ Sugar Butter Tree 楓糖口味', '○ 花王蒸氣眼罩'],
-    showPlus: true
+    count: trip.value.shoppingItems?.length || 0,
+    texts: (trip.value.shoppingItems || []).slice(0, 2).map((item) => `○ ${item.name}`),
+    showPlus: true,
+    action: 'openShoppingModal',
+    plusAction: 'openShoppingModal'
   },
   {
     title: '即時匯率',
-    heading: '1 TWD = 4.65 JPY',
-    texts: ['最後更新：1小時前']
+    heading: trip.value.currencyRate,
+    texts: [trip.value.currencyUpdatedAt]
   }
-]
+])
 
-const days = [
-  {
-    id: 1,
-    title: 'Day 1',
-    date: '06.14 (Sun)',
-    weather: '☀️',
-    items: [
-      {
-        time: '19:00',
-        name: '成田國際機場',
-        stay: '停留01時00分',
-        move: '00時46分',
-        image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=200'
-      },
-      {
-        time: '19:46',
-        name: '日暮里',
-        stay: '停留00時00分',
-        move: '00時46分',
-        image: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=200'
-      },
-      {
-        time: '20:30',
-        name: '上野',
-        stay: '停留01時00分',
-        move: '00時15分',
-        image: 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=200'
-      }
-    ]
-  },
-  {
-    id: 2,
-    title: 'Day 2',
-    date: '06.15 (Mon)',
-    weather: '🌥️',
-    items: [
-      {
-        time: '09:00',
-        name: '淺草寺',
-        stay: '停留02時00分',
-        move: '00時20分',
-        image: 'https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=200'
-      },
-      {
-        time: '13:00',
-        name: '秋葉原',
-        stay: '停留03時00分',
-        move: '00時30分',
-        image: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=200'
-      }
-    ]
-  },
-  {
-    id: 3,
-    title: 'Day 3',
-    date: '06.16 (Tus)',
-    weather: '🌬️',
-    items: [
-      {
-        time: '10:00',
-        name: '新宿',
-        stay: '停留02時00分',
-        move: '00時15分',
-        image: 'https://images.unsplash.com/photo-1536098561742-ca998e48cbcc?w=200'
-      },
-      {
-        time: '15:00',
-        name: '原宿',
-        stay: '停留02時00分',
-        move: '00時25分',
-        image: 'https://images.unsplash.com/photo-1513407030348-c983a97b98d8?w=200'
-      }
-    ]
-  },
-  {
-    id: 4,
-    title: 'Day 4',
-    date: '06.17 (Wed)',
-    weather: '☔',
-    items: [
-      {
-        time: '09:00',
-        name: '東京車站',
-        stay: '停留01時30分',
-        move: '00時20分',
-        image: 'https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=200'
-      },
-      {
-        time: '13:00',
-        name: '台場',
-        stay: '停留03時00分',
-        move: '00時35分',
-        image: 'https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=200'
-      }
-    ]
-  },
-  {
-    id: 5,
-    title: 'Day 5',
-    date: '06.18 (Thu)',
-    weather: '☀️',
-    items: [
-      {
-        time: '10:00',
-        name: '澀谷',
-        stay: '停留02時00分',
-        move: '00時20分',
-        image: 'https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=200'
-      }
-    ]
+const handleSummaryCardClick = (card) => {
+  if (card.action === 'openShoppingModal') {
+    showShoppingModal.value = true
+    return
   }
-]
+
+  if (card.path) router.push(card.path)
+}
+
+const handleSummaryPlusClick = (card) => {
+  if (card.plusAction === 'openPackingModal') {
+    showPackingModal.value = true
+  }
+
+  if (card.plusAction === 'openShoppingModal') {
+    showShoppingModal.value = true
+  }
+}
+
+const addPackingItem = (item) => {
+  if (!trip.value.packingItems?.[item.day]) return
+
+  trip.value.packingItems[item.day].items.push({
+    name: item.name,
+    category: item.category || '未分類',
+  })
+
+  showPackingModal.value = false
+}
+
+const formatDayDate = (date) => {
+  const parsed = new Date(`${date}T00:00:00`)
+  return parsed.toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short'
+  }).replace(',', '')
+}
+
+const getItemTitle = (item) => item.title || '未命名行程'
+
+const getItemDescription = (item) => item.description || item.location || '尚未填寫描述'
+
+const getStayText = (item) => {
+  if (item.stayTime || item.stayTime === 0) return `停留 ${item.stayTime} 小時`
+  return '尚未設定停留時間'
+}
+
+const days = computed(() =>
+  Object.entries(trip.value.itinerary || {}).map(([title, day], index) => ({
+    id: `${trip.value.id}-${index}`,
+    title,
+    date: formatDayDate(day.date),
+    weather: day.weather,
+    items: day.items
+  }))
+)
 </script>

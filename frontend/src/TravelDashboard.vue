@@ -60,6 +60,7 @@
                 :key="trip.id" 
                 :trip="trip" 
                 @edit="openEditModal" 
+                @open="openTrip"
               />
 
               <div v-if="filteredTrips.length === 0" class="col-span-full py-10 text-center text-slate-500">
@@ -82,28 +83,28 @@
 <script setup>
 import myCoverImage from './assets/IMG_5224.JPG';
 import { ref, computed, watch, nextTick } from 'vue';
+import { useRouter } from 'vue-router';
 import { compressImage } from './utils/imageUtils.js';
 import Navbar from './components/Navbar.vue';
 import TripCard from './components/TripCard.vue';
 import TripModal from './components/TripModal.vue'; // 👈 引入彈窗元件
 import Auth from './components/Auth.vue'; // 👈 引入登入元件
+import { addTrip, trips, updateTrip } from './data/travelStore.js';
+
+const router = useRouter();
+const savedUser = sessionStorage.getItem('travelwise:currentUser') || '';
 
 // 預設為 false (未登入狀態)
-const isLoggedIn = ref(false); 
-const currentUser = ref('');
+const isLoggedIn = ref(Boolean(savedUser)); 
+const currentUser = ref(savedUser);
 
 // 當 Auth 元件發送 login-success 事件時觸發
 const handleLogin = (username) => {
     currentUser.value = username;
     isLoggedIn.value = true;
+    sessionStorage.setItem('travelwise:currentUser', username);
 };
 
-const trips = ref([
-  { id: 1, date: '2026/06', title: '日本東京', users: '@xxx, yyy', dates: '2026/06/14-2026/06/19, 共6天', type: '行程規劃', fatigue: '45%', weather: '多雲偏晴', budget: 'TWD', isUpcoming: true },
-  { id: 2, date: '2026/01', title: '韓國釜山', users: '@xxx, yyy', dates: '2026/01/05-2026/01/10, 共5天', type: '行程規劃', fatigue: '30%', weather: '下雪', budget: 'TWD', isUpcoming: false },
-  { id: 3, date: '日期', title: '地點', users: '@xxx, yyy', dates: '2026/01/05-2026/01/10, 共5天', type: '行程規劃', fatigue: 'xx%', weather: '-', budget: 'TWD', isUpcoming: false },
-  { id: 4, date: '日期', title: '地點', users: '@xxx, yyy', dates: '2026/01/05-2026/01/10, 共5天', type: '行程規劃', fatigue: 'xx%', weather: '-', budget: 'TWD', isUpcoming: false }
-]);
 const defaultCover = myCoverImage;
 const coverPhotoUrl = ref(localStorage.getItem('savedCoverPhoto') || defaultCover);
 const fileInput = ref(null);
@@ -143,6 +144,10 @@ const openEditModal = (trip) => {
   isModalOpen.value = true;
 };
 
+const openTrip = (trip) => {
+  router.push(`/trip/${trip.id}`);
+};
+
 const closeModal = () => { 
   if (!isSubmitting.value) isModalOpen.value = false; 
 };
@@ -152,16 +157,10 @@ const handleSaveTrip = (formData) => {
   isSubmitting.value = true;
   
   setTimeout(() => {
-      const diffDays = Math.ceil(Math.abs(new Date(formData.endDate) - new Date(formData.startDate)) / (1000 * 60 * 60 * 24)) + 1;
-      const displayDates = `${formData.startDate.replace(/-/g, '/')}-${formData.endDate.replace(/-/g, '/')}, 共${diffDays}天`;
-      const displayMonth = formData.startDate.substring(0, 7).replace('-', '/');
-      const companionText = formData.companion.trim() ? formData.companion : '僅自己';
-
       if (editingTrip.value) {
-          const target = trips.value.find(t => t.id === editingTrip.value.id);
-          if (target) Object.assign(target, { title: formData.destination, date: displayMonth, dates: displayDates, users: companionText });
+          updateTrip(editingTrip.value.id, formData);
       } else {
-          trips.value.unshift({ id: Date.now(), date: displayMonth, title: formData.destination, users: companionText, dates: displayDates, type: '行程規劃', fatigue: formData.needLayover ? '計算中...' : '預估低', weather: '-', budget: 'TWD', isUpcoming: true });
+          addTrip(formData);
       }
       isSubmitting.value = false;
       closeModal();
@@ -185,9 +184,9 @@ const clearSearch = () => { searchQuery.value = ''; };
 const handleSearchBlur = () => { if (!searchQuery.value) isSearching.value = false; };
 
 const filteredTrips = computed(() => {
-  if (!debouncedSearchQuery.value) return trips.value;
+  if (!debouncedSearchQuery.value) return trips;
   const q = debouncedSearchQuery.value.toLowerCase();
-  return trips.value.filter(t => t.title.toLowerCase().includes(q) || t.date.toLowerCase().includes(q) || t.dates.toLowerCase().includes(q));
+  return trips.filter(t => t.title.toLowerCase().includes(q) || t.date.toLowerCase().includes(q) || t.dates.toLowerCase().includes(q));
 });
 </script>
 

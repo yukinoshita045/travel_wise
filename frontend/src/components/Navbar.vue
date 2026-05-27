@@ -1,5 +1,5 @@
 <template>
-    <nav class="fixed top-0 w-full bg-white/80 backdrop-blur-md shadow-sm z-40 px-6 py-3 flex justify-between items-center">
+    <nav class="fixed left-0 right-0 top-0 z-40 flex w-screen items-center justify-between bg-white/80 px-6 py-3 shadow-sm backdrop-blur-md">
         <div class="flex items-center gap-2 text-[#2B55CC] font-bold text-xl tracking-wider">
             <svg class="w-9 h-9" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="256" cy="256" r="230" stroke="currentColor" stroke-width="12" />

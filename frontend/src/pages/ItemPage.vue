@@ -1,9 +1,10 @@
 <script setup>
 import { ref, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import PackingButton from '../components/item/AddItemButton.vue'
 import AddItemModal from '../components/item/AddItemModal.vue'
-import ShoppingListModal from '../components/shopping/ShoppingListModal.vue'
-import ShoppingButton from '../components/shopping/ShoppingButton.vue'
+import Navbar from '../components/Navbar.vue'
+import { getTripOrDefault } from '../data/travelStore.js'
 
 import {
   Luggage,
@@ -11,6 +12,9 @@ import {
 
 const filter = ref('date')
 const showModal = ref(false)
+const route = useRoute()
+const router = useRouter()
+const trip = computed(() => getTripOrDefault(route.params.id))
 
 const editMode = ref(false)
 
@@ -21,46 +25,7 @@ const deleteTarget = ref({
   index: null,
 })
 
-const itemData = ref({
-  "Day 1": {
-    date: "2026-01-01",
-    items: [
-      { name: "護照", category: "重要文件" },
-      { name: "行動電源", category: "電子用品" },
-      { name: "外套", category: "衣物" },
-    ]
-  },
-
-  "Day 2": {
-    date: "2026-01-02",
-    items: [
-      { name: "相機", category: "電子用品" },
-      { name: "水壺", category: "生活用品" },
-    ]
-  },
-
-  "Day 3": {
-    date: "2026-01-03",
-    items: [
-      { name: "泳衣", category: "衣物" },
-      { name: "防曬乳", category: "保養用品" },
-    ]
-  },
-
-  "Day 4": {
-    date: "2026-01-04",
-    items: [
-      { name: "野餐墊", category: "生活用品" }
-    ]
-  },
-
-  "Day 5": {
-    date: "2026-01-05",
-    items: [
-      { name: "拍立得", category: "電子用品" }
-    ]
-  }
-})
+const itemData = computed(() => trip.value.packingItems || {})
 
 
 const newItem = ref({
@@ -68,14 +33,6 @@ const newItem = ref({
   day: '',
   category: '',
 })
-
-const showShoppingModal = ref(false)
-
-const shoppingItems = ref([
-  { name: '牙膏', checked: false },
-  { name: '雨傘', checked: false },
-  { name: '轉接頭', checked: false },
-])
 
 const dayOptions = computed(() => {
   return Object.entries(itemData.value).map(([day, data]) => ({
@@ -138,6 +95,8 @@ const allItems = computed(() => {
 })
 
 const addItem = (item) => {
+  if (!itemData.value[item.day]) return
+
   itemData.value[item.day].items.push({
     name: item.name,
     category: item.category || '未分類',
@@ -178,12 +137,13 @@ const cancelDelete = () => {
 }
 
 const goBack = () => {
-  window.history.back()
+  router.push(`/trip/${trip.value.id}`)
 }
 </script>
 
 <template>
-  <div class="h-screen bg-[#F8FAFC] px-6 py-6 flex flex-col">
+  <div class="h-screen bg-[#F8FAFC] px-6 pb-6 pt-24 flex flex-col">
+    <Navbar />
     
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
@@ -258,13 +218,6 @@ const goBack = () => {
             </div>
         </button> -->
         
-        <!-- <button
-          @click="showShoppingModal = true"
-          class="rounded-full bg-white px-5 py-2 text-sm font-medium text-gray-700 shadow transition hover:opacity-90 whitespace-nowrap"
-        >
-          購物清單
-        </button> -->
-        <ShoppingButton @click="showShoppingModal = true" />
       </div>
         
 
@@ -456,11 +409,6 @@ const goBack = () => {
       :category-options="categoryOptions"
       @close="showModal = false"
       @submit="addItem"
-    />
-    <ShoppingListModal
-      v-model="shoppingItems"
-      :show="showShoppingModal"
-      @close="showShoppingModal = false"
     />
   </div>
 

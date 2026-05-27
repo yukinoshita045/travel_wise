@@ -1,54 +1,23 @@
 <script setup>
 import { ref, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import {
   Clock,
   TicketsPlane,
   Bed,
-  Plane,
-  CircleArrowLeft,
-  CircleArrowRight
+  Plane
 } from "lucide-vue-next";
+import Navbar from "../components/Navbar.vue";
+import { getTripOrDefault } from "../data/travelStore.js";
 
-const flights = [
-  {
-    flightNumber: "CI100",
-    airline: "China Airlines",
-    departure: {
-      city: "Taipei",
-      country: "Taiwan",
-      timezone: "Asia/Taipei",
-      time: "08:00",
-    },
-    arrival: {
-      city: "Tokyo",
-      country: "Japan",
-      timezone: "Asia/Tokyo",
-      time: "11:30",
-    },
-    flightDurationHours: 3.5,
-  },
-  {
-    flightNumber: "BR198",
-    airline: "EVA Air",
-    departure: {
-      city: "Taipei",
-      country: "Taiwan",
-      timezone: "Asia/Taipei",
-      time: "15:10",
-    },
-    arrival: {
-      city: "Seoul",
-      country: "South Korea",
-      timezone: "Asia/Seoul",
-      time: "18:40",
-    },
-    flightDurationHours: 2.5,
-  },
-];
+const route = useRoute();
+const router = useRouter();
+const trip = computed(() => getTripOrDefault(route.params.id));
+const flights = computed(() => trip.value.flights || []);
 
 const index = ref(0);
 
-const flightData = computed(() => flights[index.value]);
+const flightData = computed(() => flights.value[index.value] || flights.value[0]);
 
 const formatDuration = (hours) => {
   const h = Math.floor(hours);
@@ -74,22 +43,25 @@ const toggleSleepMode = () => {
 };
 
 const nextFlight = () => {
-  index.value = (index.value + 1) % flights.length;
+  if (!flights.value.length) return;
+  index.value = (index.value + 1) % flights.value.length;
 };
 
 const prevFlight = () => {
+  if (!flights.value.length) return;
   index.value =
-    (index.value - 1 + flights.length) % flights.length;
+    (index.value - 1 + flights.value.length) % flights.value.length;
 };
 
 
 const goBack = () => {
-  window.history.back();
+  router.push(`/trip/${trip.value.id}`);
 };
 </script>
 
 <template>
-  <div class="h-screen bg-[#F8FAFC] px-6 py-6 flex flex-col">
+  <div class="h-screen bg-[#F8FAFC] px-6 pb-6 pt-24 flex flex-col">
+    <Navbar />
 
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
@@ -106,7 +78,7 @@ const goBack = () => {
     </div>
 
     <!-- Main -->
-    <div class="flex flex-1 items-center justify-center gap-20 -translate-y-6">
+    <div v-if="flightData" class="flex flex-1 items-center justify-center gap-20 -translate-y-6">
 
       <!-- Left Arrow -->
       <button
@@ -312,6 +284,10 @@ const goBack = () => {
         →
       </button>
 
+    </div>
+
+    <div v-else class="flex flex-1 items-center justify-center rounded-3xl bg-white text-[#64748B] shadow-sm">
+      尚未新增航班資訊
     </div>
   </div>
 </template>

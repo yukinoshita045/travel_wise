@@ -107,8 +107,8 @@ const modalStep = ref(1);
 // 表單狀態
 const form = reactive({
   destination: props.tripData ? props.tripData.title : '',
-  startDate: '',
-  endDate: '',
+  startDate: props.tripData ? props.tripData.startDate : '',
+  endDate: props.tripData ? props.tripData.endDate : '',
   needLayover: false,
   layoverCity: '',
   layoverHours: '',
