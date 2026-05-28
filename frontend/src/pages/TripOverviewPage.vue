@@ -158,6 +158,14 @@
       :item="selectedItinerary"
       :date="selectedItineraryDate"
       @close="selectedItinerary = null"
+      @edit="openEditModal"
+    />
+
+    <EditItineraryModal
+      :show="showEditModal"
+      :model-value="editForm"
+      @close="showEditModal = false"
+      @submit="handleUpdate"
     />
 
   </div>
@@ -170,6 +178,7 @@ import Navbar from '../components/Navbar.vue'
 import AddItemModal from '../components/item/AddItemModal.vue'
 import ShoppingListModal from '../components/shopping/ShoppingListModal.vue'
 import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.vue'
+import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
 import WeatherIcon from '../components/WeatherIcon.vue'
 import { getTripOrDefault } from '../data/travelStore.js'
 
@@ -180,6 +189,18 @@ const showPackingModal = ref(false)
 const showShoppingModal = ref(false)
 const selectedItinerary = ref(null)
 const selectedItineraryDate = ref('')
+const selectedItineraryDay = ref('')
+const showEditModal = ref(false)
+const editForm = ref({
+  id: '',
+  time: '',
+  title: '',
+  location: '',
+  address: '',
+  stayTime: '',
+  description: '',
+  image: '',
+})
 
 const allPackingItems = computed(() =>
   Object.values(trip.value.packingItems || {}).flatMap((day) => day.items || [])
@@ -274,6 +295,37 @@ const openItineraryDay = (dayTitle) => {
 const openItineraryDetail = (item, day) => {
   selectedItinerary.value = item
   selectedItineraryDate.value = day.rawDate
+  selectedItineraryDay.value = day.title
+}
+
+const openEditModal = (item) => {
+  editForm.value = {
+    id: item.id,
+    time: item.time,
+    title: item.title,
+    location: item.location,
+    address: item.address,
+    stayTime: item.stayTime,
+    description: item.description,
+    image: item.image,
+  }
+
+  showEditModal.value = true
+  selectedItinerary.value = null
+}
+
+const handleUpdate = (updated) => {
+  const items = trip.value.itinerary?.[selectedItineraryDay.value]?.items || []
+  const index = items.findIndex((item) => item.id === updated.id)
+
+  if (index !== -1) {
+    items[index] = {
+      ...items[index],
+      ...updated,
+    }
+  }
+
+  showEditModal.value = false
 }
 
 const addPackingItem = (item) => {
