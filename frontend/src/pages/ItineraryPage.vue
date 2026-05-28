@@ -6,6 +6,7 @@ import AddItineraryModal from '../components/itinerary/AddItineraryModal.vue'
 import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.vue'
 import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
 import Navbar from '../components/Navbar.vue'
+import WeatherIcon from '../components/WeatherIcon.vue'
 import { getTripOrDefault } from '../data/travelStore.js'
 
 const route = useRoute()
@@ -114,7 +115,6 @@ const handleSubmit = (payload) => {
   const newItem = {
     ...payload,
     time: payload.time || '00:00',
-    move: '',
     stayTime: Number(payload.stayTime || 0),
     id: uuidv4(),
   }
@@ -170,10 +170,15 @@ const goBack = () => {
         v-for="(data, day) in tripData"
         :key="day"
         @click="selectedDay = day"
-        class="rounded-full px-5 py-2 whitespace-nowrap"
+        class="flex items-center gap-2 rounded-full px-5 py-2 whitespace-nowrap"
         :class="selectedDay === day ? 'bg-[#94A3B8] text-white' : 'bg-white text-gray-700 shadow-sm'"
       >
-        {{ day }}
+        <span>{{ day }}</span>
+        <WeatherIcon
+          v-if="data.weather"
+          :weather="data.weather"
+          size-class="h-4 w-4"
+        />
       </button>
     </div>
 
@@ -184,6 +189,11 @@ const goBack = () => {
         <div>
           <h2 class="text-xl font-bold text-[#1E293B]">
             {{ selectedDay }}
+            <WeatherIcon
+              v-if="tripData[selectedDay].weather"
+              :weather="tripData[selectedDay].weather"
+              size-class="ml-2 inline h-6 w-6"
+            />
           </h2>
           <p class="text-sm text-gray-500">
             {{ tripData[selectedDay].date }}

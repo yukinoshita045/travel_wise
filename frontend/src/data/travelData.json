@@ -71,7 +71,6 @@
                 "arrival"
               ],
               "stayTime": 1,
-              "move": "00時46分",
               "cost": 0,
               "description": "抵達後領取行李並購買交通票券，準備前往市區。",
               "notes": "確認 Suica 或 Skyliner 票券",
@@ -88,7 +87,6 @@
                 "transfer"
               ],
               "stayTime": 0,
-              "move": "00時46分",
               "cost": 0,
               "description": "轉乘 JR 前往上野住宿區。",
               "notes": "",
@@ -106,7 +104,6 @@
                 "check-in"
               ],
               "stayTime": 1,
-              "move": "00時15分",
               "cost": 4500,
               "description": "辦理入住後可在附近簡單用餐。",
               "notes": "可先寄放行李",
@@ -130,7 +127,6 @@
                 "culture"
               ],
               "stayTime": 2,
-              "move": "00時20分",
               "cost": 0,
               "description": "參觀雷門與仲見世商店街，體驗東京傳統文化。",
               "notes": "建議避開午後人潮",
@@ -148,7 +144,6 @@
                 "electronics"
               ],
               "stayTime": 3,
-              "move": "00時30分",
               "cost": 2500,
               "description": "安排電器、模型與動漫周邊購物時間。",
               "notes": "保留免稅收據",
@@ -172,7 +167,6 @@
                 "food"
               ],
               "stayTime": 2,
-              "move": "00時15分",
               "cost": 1600,
               "description": "逛百貨與周邊商圈，午餐安排拉麵或洋食。",
               "notes": "",
@@ -190,7 +184,6 @@
                 "street"
               ],
               "stayTime": 2,
-              "move": "00時25分",
               "cost": 2200,
               "description": "竹下通與表參道散步，安排甜點時間。",
               "notes": "",
@@ -214,7 +207,6 @@
                 "souvenir"
               ],
               "stayTime": 1.5,
-              "move": "00時20分",
               "cost": 1800,
               "description": "逛 Character Street 與伴手禮店。",
               "notes": "雨天備案可增加室內時間",
@@ -232,7 +224,6 @@
                 "mall"
               ],
               "stayTime": 3,
-              "move": "00時35分",
               "cost": 3000,
               "description": "海濱公園與商場行程，可依天氣調整。",
               "notes": "",
@@ -256,7 +247,6 @@
                 "shopping"
               ],
               "stayTime": 2,
-              "move": "00時20分",
               "cost": 2400,
               "description": "澀谷 Scramble Square 與周邊購物。",
               "notes": "",
@@ -396,7 +386,6 @@
                 "airport"
               ],
               "stayTime": 1,
-              "move": "00時40分",
               "cost": 0,
               "description": "抵達釜山後前往市區住宿。",
               "notes": "",
@@ -420,7 +409,6 @@
                 "photo"
               ],
               "stayTime": 2.5,
-              "move": "00時30分",
               "cost": 0,
               "description": "拍照與小店散步，保留咖啡廳休息時間。",
               "notes": "",

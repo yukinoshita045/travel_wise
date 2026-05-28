@@ -93,7 +93,7 @@
             <p class="mt-1 text-xs text-[#8ea0b8]">{{ day.date }}</p>
           </div>
 
-          <span class="text-[28px]">{{ day.weather }}</span>
+          <WeatherIcon :weather="day.weather" size-class="h-8 w-8" />
         </div>
 
         <div
@@ -132,9 +132,8 @@
               </div>
             </div>
 
-            <div class="mt-2.5 flex items-center justify-between gap-2 text-xs text-[#8798af]">
+            <div class="mt-2.5 text-xs text-[#8798af]">
               <span>{{ getStayText(item) }}</span>
-              <span v-if="item.move">🚆 {{ item.move }}</span>
             </div>
           </div>
         </div>
@@ -171,6 +170,7 @@ import Navbar from '../components/Navbar.vue'
 import AddItemModal from '../components/item/AddItemModal.vue'
 import ShoppingListModal from '../components/shopping/ShoppingListModal.vue'
 import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.vue'
+import WeatherIcon from '../components/WeatherIcon.vue'
 import { getTripOrDefault } from '../data/travelStore.js'
 
 const route = useRoute()

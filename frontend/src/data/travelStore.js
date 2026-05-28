@@ -16,6 +16,7 @@ const normalizeItineraryItem = (item) => {
   delete normalizedItem.lat
   delete normalizedItem.lng
   delete normalizedItem.lon
+  delete normalizedItem.move
 
   return normalizedItem
 }
