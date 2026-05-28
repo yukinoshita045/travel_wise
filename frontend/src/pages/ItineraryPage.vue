@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { v4 as uuidv4 } from 'uuid'
 import AddItineraryModal from '../components/itinerary/AddItineraryModal.vue'
@@ -12,13 +12,29 @@ const route = useRoute()
 const router = useRouter()
 const trip = computed(() => getTripOrDefault(route.params.id))
 const tripData = computed(() => trip.value.itinerary || {})
-const selectedDay = ref(Object.keys(tripData.value)[0] || 'Day 1')
+const getInitialSelectedDay = () => {
+  const queryDay = route.query.day
+  return typeof queryDay === 'string' && tripData.value[queryDay]
+    ? queryDay
+    : Object.keys(tripData.value)[0] || 'Day 1'
+}
+
+const selectedDay = ref(getInitialSelectedDay())
 const openMenu = ref(null)
 const showModal = ref(false)
 const showEditModal = ref(false)
 const selectedItinerary = ref(null)
 
 const packingItems = ref([])
+
+watch(
+  () => route.query.day,
+  (day) => {
+    if (typeof day === 'string' && tripData.value[day]) {
+      selectedDay.value = day
+    }
+  }
+)
 
 const handleAddPrepItem = (prepItem) => {
   const exists = packingItems.value.some(

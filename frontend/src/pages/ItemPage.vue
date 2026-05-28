@@ -6,10 +6,6 @@ import AddItemModal from '../components/item/AddItemModal.vue'
 import Navbar from '../components/Navbar.vue'
 import { getTripOrDefault } from '../data/travelStore.js'
 
-import {
-  Luggage,
-} from "lucide-vue-next";
-
 const filter = ref('date')
 const showModal = ref(false)
 const route = useRoute()
@@ -103,6 +99,14 @@ const addItem = (item) => {
   })
 
   showModal.value = false
+}
+
+const updateItemCategory = (day, index, value) => {
+  const nextCategory = value.trim() || '未分類'
+
+  if (!itemData.value[day]?.items?.[index]) return
+
+  itemData.value[day].items[index].category = nextCategory
 }
 
 const closeModal = () => {
@@ -271,6 +275,15 @@ const goBack = () => {
                 <p class="mt-1 text-sm text-gray-500">
                   {{ item.category }}
                 </p>
+
+                <input
+                  v-if="editMode"
+                  :value="item.category"
+                  list="packing-category-options"
+                  class="mt-2 h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-[#94A3B8]"
+                  @change="updateItemCategory(day, idx, $event.target.value)"
+                  @keyup.enter="$event.target.blur()"
+                />
               </div>
 
               <!-- <input type="checkbox" class="h-5 w-5" /> -->
@@ -335,6 +348,15 @@ const goBack = () => {
                 <p class="mt-1 text-sm text-gray-500">
                   {{ item.day }} ・ {{ item.date }}
                 </p>
+
+                <input
+                  v-if="editMode"
+                  :value="item.category"
+                  list="packing-category-options"
+                  class="mt-2 h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-[#94A3B8]"
+                  @change="updateItemCategory(item.day, item.originalIndex, $event.target.value)"
+                  @keyup.enter="$event.target.blur()"
+                />
               </div>
 
               <!-- <input type="checkbox" class="h-5 w-5" /> -->
@@ -378,6 +400,15 @@ const goBack = () => {
               <p class="mt-1 text-sm text-gray-500">
                 {{ item.category }} ・ {{ item.day }} ・ {{ item.date }}
               </p>
+
+              <input
+                v-if="editMode"
+                :value="item.category"
+                list="packing-category-options"
+                class="mt-2 h-9 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none focus:border-[#94A3B8]"
+                @change="updateItemCategory(item.day, item.originalIndex, $event.target.value)"
+                @keyup.enter="$event.target.blur()"
+              />
             </div>
 
             <!-- <input type="checkbox" class="h-5 w-5" /> -->
@@ -410,6 +441,14 @@ const goBack = () => {
       @close="showModal = false"
       @submit="addItem"
     />
+
+    <datalist id="packing-category-options">
+      <option
+        v-for="category in categoryOptions"
+        :key="category"
+        :value="category"
+      />
+    </datalist>
   </div>
 
 

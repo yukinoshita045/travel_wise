@@ -83,7 +83,7 @@
       <div
         v-for="day in days"
         :key="day.id"
-        @click="router.push(`/trip/${trip.id}/itinerary`)"
+        @click="openItineraryDay(day.title)"
         class="flex h-[500px] w-[calc((100%-42px)/4)] min-w-[280px] shrink-0 flex-col rounded-[22px] bg-white p-[18px] shadow-[0_8px_20px_rgba(49,74,107,.06)] max-[900px]:w-full"
         :class="'cursor-pointer transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(49,74,107,.10)]'"
       >
@@ -105,6 +105,7 @@
           <div
             v-for="(item, index) in day.items"
             :key="index"
+            @click.stop="openItineraryDetail(item, day)"
             class="relative mb-5 border-l border-dashed border-[#a2b3c8] pl-5"
           >
             <div class="absolute left-[-5px] top-[6px] h-2 w-2 rounded-full bg-[#1f2d44]"></div>
@@ -154,6 +155,12 @@
       @close="showShoppingModal = false"
     />
 
+    <DetailItineraryModal
+      :item="selectedItinerary"
+      :date="selectedItineraryDate"
+      @close="selectedItinerary = null"
+    />
+
   </div>
 </template>
 
@@ -163,6 +170,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import AddItemModal from '../components/item/AddItemModal.vue'
 import ShoppingListModal from '../components/shopping/ShoppingListModal.vue'
+import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.vue'
 import { getTripOrDefault } from '../data/travelStore.js'
 
 const route = useRoute()
@@ -170,6 +178,8 @@ const router = useRouter()
 const trip = computed(() => getTripOrDefault(route.params.id))
 const showPackingModal = ref(false)
 const showShoppingModal = ref(false)
+const selectedItinerary = ref(null)
+const selectedItineraryDate = ref('')
 
 const allPackingItems = computed(() =>
   Object.values(trip.value.packingItems || {}).flatMap((day) => day.items || [])
@@ -254,6 +264,18 @@ const handleSummaryPlusClick = (card) => {
   }
 }
 
+const openItineraryDay = (dayTitle) => {
+  router.push({
+    path: `/trip/${trip.value.id}/itinerary`,
+    query: { day: dayTitle }
+  })
+}
+
+const openItineraryDetail = (item, day) => {
+  selectedItinerary.value = item
+  selectedItineraryDate.value = day.rawDate
+}
+
 const addPackingItem = (item) => {
   if (!trip.value.packingItems?.[item.day]) return
 
@@ -287,6 +309,7 @@ const days = computed(() =>
   Object.entries(trip.value.itinerary || {}).map(([title, day], index) => ({
     id: `${trip.value.id}-${index}`,
     title,
+    rawDate: day.date,
     date: formatDayDate(day.date),
     weather: day.weather,
     items: day.items
