@@ -12,11 +12,39 @@
             </svg>
             TravelWise
         </div>
-        <div class="flex items-center gap-3 cursor-pointer group">
-            <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-200 shadow-sm text-slate-400 group-hover:text-[#2B55CC] group-hover:border-[#2B55CC]/40 transition-colors">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+        <div class="relative">
+          <div 
+            @click="showProfileMenu = !showProfileMenu" 
+            class="flex items-center gap-3 cursor-pointer group"
+          >
+            <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center border border-slate-200 shadow-sm group-hover:bg-blue-50 group-hover:border-blue-100 transition-colors">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
             </div>
             <span class="text-sm text-slate-700 font-bold hidden sm:block group-hover:text-[#2B55CC] transition-colors">個人檔案</span>
+          </div>
+
+          <div v-show="showProfileMenu" class="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-[0_5px_15px_-3px_rgba(0,0,0,0.1)] border border-slate-100 py-1 z-50">
+            <div class="px-4 py-3 border-b border-slate-50">
+              <p class="text-sm font-bold text-slate-700">TravelWise 旅客</p>
+              <p class="text-xs text-slate-400 truncate mt-0.5">user@travelwise.com</p>
+            </div>
+            <a href="#" @click.prevent="alert('個人設定功能開發中，敬請期待！')" class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-[#2B55CC] transition-colors">
+              個人設定
+            </a>
+            <button @click="handleLogout" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors">
+              登出系統
+            </button>
+          </div>
         </div>
     </nav>
 </template>
+
+<script setup>
+import { ref } from 'vue';
+
+const showProfileMenu = ref(false);
+
+const handleLogout = () => {
+  window.location.reload();
+};
+</script>

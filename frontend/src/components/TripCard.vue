@@ -22,10 +22,11 @@
             <div class="flex flex-wrap gap-2">
                 <span class="px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md">疲勞指數：{{ trip.fatigue }}</span>
                 <span class="px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md">天氣：{{ trip.weather }}</span>
-            </div>
-            <div class="pt-3 mt-2 border-t border-slate-50 flex items-center justify-between">
-                <span class="text-slate-400">預算</span>
-                <span class="font-bold text-sm text-slate-800">________({{ trip.budget }})</span>
+                
+                <span v-if="trip.transfers !== undefined" class="px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md">
+                    {{ trip.transfers === 0 ? '直飛' : `轉機 ${trip.transfers} 次` }}
+                </span>
+                
             </div>
         </div>
     </div>
