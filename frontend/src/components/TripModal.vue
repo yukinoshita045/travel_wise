@@ -80,11 +80,22 @@
                                       <input type="text" v-model="layover.city" placeholder="例如：香港 HKG" class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#2B55CC]/50 focus:border-[#2B55CC] outline-none transition-all bg-white">
                                   </div>
                               </div>
+                              
                               <div>
                                   <label class="block text-sm font-medium text-slate-600 mb-1">預計轉機停留時間 (小時)</label>
                                   <div class="relative">
                                       <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg></div>
                                       <input type="number" v-model="layover.hours" placeholder="例如：4" min="0" class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#2B55CC]/50 focus:border-[#2B55CC] outline-none transition-all bg-white">
+                                  </div>
+                              </div>
+
+                              <div>
+                                  <label class="block text-sm font-medium text-slate-600 mb-1">航班編號</label>
+                                  <div class="relative">
+                                      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                                          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path></svg>
+                                      </div>
+                                      <input type="text" v-model="layover.flightNumber" placeholder="例如：BR871 或 CI006" class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#2B55CC]/50 focus:border-[#2B55CC] outline-none transition-all bg-white">
                                   </div>
                               </div>
                           </div>
@@ -135,7 +146,7 @@ watch(() => form.transfers, (newCount) => {
   if (newCount > currentCount) {
     // 數量變多：自動補齊缺少的填寫框
     for (let i = currentCount; i < newCount; i++) {
-      form.layovers.push({ city: '', hours: '' });
+      form.layovers.push({ city: '', hours: '', flightNumber: '' });
     }
   } else if (newCount < currentCount) {
     // 數量變少：直接把多出來的尾巴砍掉
