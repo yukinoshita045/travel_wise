@@ -26,6 +26,8 @@ const normalizeTravelData = (data) => {
 
   normalizedData.trips = (normalizedData.trips || []).map((trip) => ({
     ...trip,
+    transfers: Number(trip.transfers || 0),
+    layovers: Array.isArray(trip.layovers) ? trip.layovers : [],
     itinerary: Object.fromEntries(
       Object.entries(trip.itinerary || {}).map(([dayName, dayData]) => [
         dayName,
@@ -136,7 +138,9 @@ export const createTripFromForm = (formData) => {
     endDate: formData.endDate,
     dates: displayDates,
     type: '行程規劃',
-    fatigue: formData.needLayover ? '計算中...' : '預估低',
+    transfers: Number(formData.transfers || 0),
+    layovers: cloneData(formData.layovers || []),
+    fatigue: Number(formData.transfers || 0) > 0 ? '計算中...' : '預估低',
     weather: '-',
     budget: 'TWD',
     currencyRate: '-',
@@ -182,7 +186,9 @@ export const updateTrip = (tripId, formData) => {
     startDate: formData.startDate,
     endDate: formData.endDate,
     dates: displayDates,
-    fatigue: formData.needLayover ? '計算中...' : target.fatigue
+    transfers: Number(formData.transfers || 0),
+    layovers: cloneData(formData.layovers || []),
+    fatigue: Number(formData.transfers || 0) > 0 ? '計算中...' : target.fatigue
   })
 
   target.itinerary = syncDayMapToDates(
