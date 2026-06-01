@@ -1,100 +1,43 @@
 <script setup>
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { v4 as uuidv4 } from 'uuid'
 import AddItineraryModal from '../components/itinerary/AddItineraryModal.vue'
 import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.vue'
 import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
+import Navbar from '../components/Navbar.vue'
+import WeatherIcon from '../components/WeatherIcon.vue'
+import ChatPanel from '../components/chat/ChatPanel.vue'
+import { getTripOrDefault } from '../data/travelStore.js'
 
-const selectedDay = ref('Day 1')
+const route = useRoute()
+const router = useRouter()
+const trip = computed(() => getTripOrDefault(route.params.id))
+const tripData = computed(() => trip.value.itinerary || {})
+const getInitialSelectedDay = () => {
+  const queryDay = route.query.day
+  return typeof queryDay === 'string' && tripData.value[queryDay]
+    ? queryDay
+    : Object.keys(tripData.value)[0] || 'Day 1'
+}
+
+const selectedDay = ref(getInitialSelectedDay())
 const openMenu = ref(null)
 const showModal = ref(false)
 const showEditModal = ref(false)
 const selectedItinerary = ref(null)
-
-const tripData = ref({
-  "Day 1": {
-    date: "2026-01-01",
-    items: [
-      {
-        id: uuidv4(),
-        time: "09:00",
-        title: "抵達桃園機場",
-        location: "TPE Airport",
-        address: "No. 9, Hangzhan S Rd, Dayuan District, Taoyuan City, Taiwan",
-        lat: 25.0797,
-        lng: 121.2342,
-        category: "transport",
-        tags: ["airport", "departure"],
-        stayTime: 2,
-        cost: 0,
-        description: "提前 2 小時抵達機場，完成報到、托運與安檢流程。",
-        notes: "記得確認護照與登機證",
-        image:
-          "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1200&auto=format&fit=crop",
-      },
-      {
-        id: uuidv4(),
-        time: "11:30",
-        title: "入住飯店",
-        location: "Shinjuku Hotel",
-        address: "2 Chome-14-5 Kabukicho, Shinjuku City, Tokyo, Japan",
-        lat: 35.6938,
-        lng: 139.7034,
-        category: "accommodation",
-        tags: ["hotel", "check-in"],
-        stayTime: 1.5,
-        cost: 4500,
-        description: "辦理 Check-in，稍作休息後開始下午行程。",
-        notes: "可提早寄放行李",
-        image:
-          "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=1200&auto=format&fit=crop",
-      },
-      {
-        id: uuidv4(),
-        time: "14:00",
-        title: "淺草寺",
-        location: "Tokyo",
-        address: "2 Chome-3-1 Asakusa, Taito City, Tokyo, Japan",
-        lat: 35.7148,
-        lng: 139.7967,
-        category: "attraction",
-        tags: ["temple", "culture"],
-        stayTime: 3,
-        cost: 0,
-        description: "參觀雷門與仲見世商店街，體驗東京傳統文化。",
-        notes: "建議避開人潮 15:00-17:00",
-        image:
-          "https://images.unsplash.com/photo-1526481280695-3c4691f8f6ac?q=80&w=1200&auto=format&fit=crop",
-      },
-    ],
-  },
-
-  "Day 2": {
-    date: "2026-01-02",
-    items: [
-      {
-        id: uuidv4(),
-        time: "10:00",
-        title: "東京迪士尼",
-        location: "Tokyo Disney Resort",
-        address: "1-1 Maihama, Urayasu, Chiba, Japan",
-        lat: 35.6329,
-        lng: 139.8804,
-        category: "theme_park",
-        tags: ["disney", "fun", "full-day"],
-        stayTime: 8,
-        cost: 8500,
-        description: "全天樂園行程，建議提前預約熱門設施。",
-        notes: "建議提早入園",
-        image:
-          "https://images.unsplash.com/photo-1582711012124-a56cf7a9bc6c?q=80&w=1200&auto=format&fit=crop",
-      },
-    ],
-  },
-})
-
+const chatLayout = ref({ isOpen: false, width: 0 })
 
 const packingItems = ref([])
+
+watch(
+  () => route.query.day,
+  (day) => {
+    if (typeof day === 'string' && tripData.value[day]) {
+      selectedDay.value = day
+    }
+  }
+)
 
 const handleAddPrepItem = (prepItem) => {
   const exists = packingItems.value.some(
@@ -199,10 +142,22 @@ const handleDelete = (day, idToDelete) => {
   )
   openMenu.value = null
 }
+
+const goBack = () => {
+  router.push(`/trip/${trip.value.id}`)
+}
+
+const handleChatLayoutChange = (layout) => {
+  chatLayout.value = layout
+}
 </script>
 
 <template>
-  <div class="h-screen overflow-hidden bg-[#F8FAFC] px-6 py-6 flex flex-col">
+  <div
+    class="h-screen overflow-hidden bg-[#F8FAFC] px-6 pb-6 pt-24 flex flex-col transition-[padding-left] duration-200"
+    :style="{ paddingLeft: chatLayout.isOpen ? `${chatLayout.width + 24}px` : undefined }"
+  >
+    <Navbar />
 
     <!-- Header -->
     <div class="mb-6 flex items-center justify-between">
@@ -211,7 +166,7 @@ const handleDelete = (day, idToDelete) => {
       </h1>
 
       <button
-        @click="window.history.back()"
+        @click="goBack"
         class="rounded-full bg-[#94A3B8] px-4 py-2 text-white"
       >
         ← 返回
@@ -224,10 +179,15 @@ const handleDelete = (day, idToDelete) => {
         v-for="(data, day) in tripData"
         :key="day"
         @click="selectedDay = day"
-        class="rounded-full px-5 py-2 whitespace-nowrap"
+        class="flex items-center gap-2 rounded-full px-5 py-2 whitespace-nowrap"
         :class="selectedDay === day ? 'bg-[#94A3B8] text-white' : 'bg-white text-gray-700 shadow-sm'"
       >
-        {{ day }}
+        <span>{{ day }}</span>
+        <WeatherIcon
+          v-if="data.weather"
+          :weather="data.weather"
+          size-class="h-4 w-4"
+        />
       </button>
     </div>
 
@@ -238,6 +198,11 @@ const handleDelete = (day, idToDelete) => {
         <div>
           <h2 class="text-xl font-bold text-[#1E293B]">
             {{ selectedDay }}
+            <WeatherIcon
+              v-if="tripData[selectedDay].weather"
+              :weather="tripData[selectedDay].weather"
+              size-class="ml-2 inline h-6 w-6"
+            />
           </h2>
           <p class="text-sm text-gray-500">
             {{ tripData[selectedDay].date }}
@@ -276,10 +241,13 @@ const handleDelete = (day, idToDelete) => {
 
               <div class="flex h-full gap-4">
 
-                <img
-                  :src="item.image"
-                  class="aspect-square h-full rounded-2xl object-cover"
-                />
+                <div class="aspect-square h-full shrink-0 overflow-hidden rounded-2xl bg-slate-200">
+                  <img
+                    v-if="item.image"
+                    :src="item.image"
+                    class="h-full w-full object-cover"
+                  />
+                </div>
 
                 <div class="flex flex-1 flex-col">
 
@@ -362,6 +330,11 @@ const handleDelete = (day, idToDelete) => {
       :model-value="editForm"
       @close="showEditModal = false"
       @submit="handleUpdate"
+    />
+
+    <ChatPanel
+      :trip-id="String(route.params.id)"
+      @layout-change="handleChatLayoutChange"
     />
 
   </div>

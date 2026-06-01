@@ -1,0 +1,464 @@
+{
+  "trips": [
+    {
+      "id": "tokyo-2026",
+      "date": "2026/06",
+      "title": "日本東京",
+      "destination": "Tokyo, Japan",
+      "users": "@xxx, yyy",
+      "startDate": "2026-06-14",
+      "endDate": "2026-06-19",
+      "dates": "2026/06/14-2026/06/19, 共6天",
+      "type": "行程規劃",
+      "fatigue": "45%",
+      "weather": "多雲偏晴",
+      "budget": "TWD",
+      "currencyRate": "1 TWD = 4.65 JPY",
+      "currencyUpdatedAt": "最後更新：1小時前",
+      "isUpcoming": true,
+      "coverImage": "https://images.unsplash.com/photo-1570459027562-4a916cc6113f?q=80&w=1400",
+      "note": "行程筆記：",
+      "flights": [
+        {
+          "flightNumber": "CI108",
+          "airline": "中華航空",
+          "departure": {
+            "city": "Taipei",
+            "country": "Taiwan",
+            "timezone": "Asia/Taipei",
+            "time": "14:35"
+          },
+          "arrival": {
+            "city": "Tokyo",
+            "country": "Japan",
+            "timezone": "Asia/Tokyo",
+            "time": "19:00"
+          },
+          "flightDurationHours": 3.42
+        },
+        {
+          "flightNumber": "BR198",
+          "airline": "EVA Air",
+          "departure": {
+            "city": "Taipei",
+            "country": "Taiwan",
+            "timezone": "Asia/Taipei",
+            "time": "15:10"
+          },
+          "arrival": {
+            "city": "Tokyo",
+            "country": "Japan",
+            "timezone": "Asia/Tokyo",
+            "time": "19:25"
+          },
+          "flightDurationHours": 3.25
+        }
+      ],
+      "itinerary": {
+        "Day 1": {
+          "date": "2026-06-14",
+          "weather": "☀",
+          "items": [
+            {
+              "id": "tokyo-day1-nrt",
+              "time": "19:00",
+              "title": "成田國際機場",
+              "location": "Narita Airport",
+              "address": "1-1 Furugome, Narita, Chiba, Japan",
+              "category": "transport",
+              "tags": [
+                "airport",
+                "arrival"
+              ],
+              "stayTime": 1,
+              "cost": 0,
+              "description": "抵達後領取行李並購買交通票券，準備前往市區。",
+              "notes": "確認 Suica 或 Skyliner 票券",
+              "image": "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=600"
+            },
+            {
+              "id": "tokyo-day1-nippori",
+              "time": "19:46",
+              "title": "日暮里",
+              "location": "Nippori",
+              "address": "Nippori, Arakawa City, Tokyo, Japan",
+              "category": "transport",
+              "tags": [
+                "transfer"
+              ],
+              "stayTime": 0,
+              "cost": 0,
+              "description": "轉乘 JR 前往上野住宿區。",
+              "notes": "",
+              "image": "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=600"
+            },
+            {
+              "id": "tokyo-day1-ueno",
+              "time": "20:30",
+              "title": "上野",
+              "location": "Ueno",
+              "address": "Ueno, Taito City, Tokyo, Japan",
+              "category": "accommodation",
+              "tags": [
+                "hotel",
+                "check-in"
+              ],
+              "stayTime": 1,
+              "cost": 4500,
+              "description": "辦理入住後可在附近簡單用餐。",
+              "notes": "可先寄放行李",
+              "image": "https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=600"
+            }
+          ]
+        },
+        "Day 2": {
+          "date": "2026-06-15",
+          "weather": "🌥",
+          "items": [
+            {
+              "id": "tokyo-day2-sensoji",
+              "time": "09:00",
+              "title": "淺草寺",
+              "location": "Asakusa",
+              "address": "2 Chome-3-1 Asakusa, Taito City, Tokyo, Japan",
+              "category": "attraction",
+              "tags": [
+                "temple",
+                "culture"
+              ],
+              "stayTime": 2,
+              "cost": 0,
+              "description": "參觀雷門與仲見世商店街，體驗東京傳統文化。",
+              "notes": "建議避開午後人潮",
+              "image": "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=600"
+            },
+            {
+              "id": "tokyo-day2-akihabara",
+              "time": "13:00",
+              "title": "秋葉原",
+              "location": "Akihabara",
+              "address": "Akihabara, Taito City, Tokyo, Japan",
+              "category": "shopping",
+              "tags": [
+                "anime",
+                "electronics"
+              ],
+              "stayTime": 3,
+              "cost": 2500,
+              "description": "安排電器、模型與動漫周邊購物時間。",
+              "notes": "保留免稅收據",
+              "image": "https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=600"
+            }
+          ]
+        },
+        "Day 3": {
+          "date": "2026-06-16",
+          "weather": "🌬",
+          "items": [
+            {
+              "id": "tokyo-day3-shinjuku",
+              "time": "10:00",
+              "title": "新宿",
+              "location": "Shinjuku",
+              "address": "Shinjuku City, Tokyo, Japan",
+              "category": "city_walk",
+              "tags": [
+                "city",
+                "food"
+              ],
+              "stayTime": 2,
+              "cost": 1600,
+              "description": "逛百貨與周邊商圈，午餐安排拉麵或洋食。",
+              "notes": "",
+              "image": "https://images.unsplash.com/photo-1536098561742-ca998e48cbcc?w=600"
+            },
+            {
+              "id": "tokyo-day3-harajuku",
+              "time": "15:00",
+              "title": "原宿",
+              "location": "Harajuku",
+              "address": "Jingumae, Shibuya City, Tokyo, Japan",
+              "category": "shopping",
+              "tags": [
+                "fashion",
+                "street"
+              ],
+              "stayTime": 2,
+              "cost": 2200,
+              "description": "竹下通與表參道散步，安排甜點時間。",
+              "notes": "",
+              "image": "https://images.unsplash.com/photo-1513407030348-c983a97b98d8?w=600"
+            }
+          ]
+        },
+        "Day 4": {
+          "date": "2026-06-17",
+          "weather": "☔",
+          "items": [
+            {
+              "id": "tokyo-day4-station",
+              "time": "09:00",
+              "title": "東京車站",
+              "location": "Tokyo Station",
+              "address": "1 Chome Marunouchi, Chiyoda City, Tokyo, Japan",
+              "category": "food",
+              "tags": [
+                "station",
+                "souvenir"
+              ],
+              "stayTime": 1.5,
+              "cost": 1800,
+              "description": "逛 Character Street 與伴手禮店。",
+              "notes": "雨天備案可增加室內時間",
+              "image": "https://images.unsplash.com/photo-1533929736458-ca588d08c8be?w=600"
+            },
+            {
+              "id": "tokyo-day4-odaiba",
+              "time": "13:00",
+              "title": "台場",
+              "location": "Odaiba",
+              "address": "Odaiba, Minato City, Tokyo, Japan",
+              "category": "attraction",
+              "tags": [
+                "bay",
+                "mall"
+              ],
+              "stayTime": 3,
+              "cost": 3000,
+              "description": "海濱公園與商場行程，可依天氣調整。",
+              "notes": "",
+              "image": "https://images.unsplash.com/photo-1503899036084-c55cdd92da26?w=600"
+            }
+          ]
+        },
+        "Day 5": {
+          "date": "2026-06-18",
+          "weather": "☀",
+          "items": [
+            {
+              "id": "tokyo-day5-shibuya",
+              "time": "10:00",
+              "title": "澀谷",
+              "location": "Shibuya",
+              "address": "Shibuya City, Tokyo, Japan",
+              "category": "city_walk",
+              "tags": [
+                "crossing",
+                "shopping"
+              ],
+              "stayTime": 2,
+              "cost": 2400,
+              "description": "澀谷 Scramble Square 與周邊購物。",
+              "notes": "",
+              "image": "https://images.unsplash.com/photo-1542051841857-5f90071e7989?w=600"
+            }
+          ]
+        }
+      },
+      "packingItems": {
+        "Day 1": {
+          "date": "2026-06-14",
+          "items": [
+            {
+              "name": "護照",
+              "category": "重要文件"
+            },
+            {
+              "name": "電子交通卡（Suica）",
+              "category": "交通"
+            },
+            {
+              "name": "大容量行動電源與充電線",
+              "category": "電子用品"
+            }
+          ]
+        },
+        "Day 2": {
+          "date": "2026-06-15",
+          "items": [
+            {
+              "name": "相機",
+              "category": "電子用品"
+            },
+            {
+              "name": "水壺",
+              "category": "生活用品"
+            }
+          ]
+        },
+        "Day 3": {
+          "date": "2026-06-16",
+          "items": [
+            {
+              "name": "外套",
+              "category": "衣物"
+            },
+            {
+              "name": "雨傘",
+              "category": "生活用品"
+            }
+          ]
+        },
+        "Day 4": {
+          "date": "2026-06-17",
+          "items": [
+            {
+              "name": "防水鞋套",
+              "category": "生活用品"
+            }
+          ]
+        },
+        "Day 5": {
+          "date": "2026-06-18",
+          "items": [
+            {
+              "name": "備用購物袋",
+              "category": "生活用品"
+            }
+          ]
+        }
+      },
+      "shoppingItems": [
+        {
+          "name": "Sugar Butter Tree 楓糖口味",
+          "checked": false
+        },
+        {
+          "name": "花王蒸氣眼罩",
+          "checked": false
+        },
+        {
+          "name": "東京香蕉",
+          "checked": false
+        }
+      ],
+      "transfers": 0,
+      "layovers": []
+    },
+    {
+      "id": "busan-2026",
+      "date": "2026/01",
+      "title": "韓國釜山",
+      "destination": "Busan, South Korea",
+      "users": "@xxx, yyy",
+      "startDate": "2026-01-05",
+      "endDate": "2026-01-10",
+      "dates": "2026/01/05-2026/01/10, 共6天",
+      "type": "行程規劃",
+      "fatigue": "30%",
+      "weather": "下雪",
+      "budget": "TWD",
+      "currencyRate": "1 TWD = 43.10 KRW",
+      "currencyUpdatedAt": "最後更新：2小時前",
+      "isUpcoming": false,
+      "coverImage": "https://images.unsplash.com/photo-1578922746465-3a80a228f223?q=80&w=1400",
+      "note": "行程筆記：",
+      "flights": [
+        {
+          "flightNumber": "BX794",
+          "airline": "Air Busan",
+          "departure": {
+            "city": "Taipei",
+            "country": "Taiwan",
+            "timezone": "Asia/Taipei",
+            "time": "13:25"
+          },
+          "arrival": {
+            "city": "Busan",
+            "country": "South Korea",
+            "timezone": "Asia/Seoul",
+            "time": "16:45"
+          },
+          "flightDurationHours": 2.33
+        }
+      ],
+      "itinerary": {
+        "Day 1": {
+          "date": "2026-01-05",
+          "weather": "❄",
+          "items": [
+            {
+              "id": "busan-day1-airport",
+              "time": "16:45",
+              "title": "金海國際機場",
+              "location": "Gimhae International Airport",
+              "address": "108 Gonghangjinip-ro, Gangseo-gu, Busan, South Korea",
+              "category": "transport",
+              "tags": [
+                "airport"
+              ],
+              "stayTime": 1,
+              "cost": 0,
+              "description": "抵達釜山後前往市區住宿。",
+              "notes": "",
+              "image": "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=600"
+            }
+          ]
+        },
+        "Day 2": {
+          "date": "2026-01-06",
+          "weather": "☁",
+          "items": [
+            {
+              "id": "busan-day2-gamcheon",
+              "time": "10:00",
+              "title": "甘川洞文化村",
+              "location": "Gamcheon Culture Village",
+              "address": "203 Gamnae 2-ro, Saha-gu, Busan, South Korea",
+              "category": "attraction",
+              "tags": [
+                "culture",
+                "photo"
+              ],
+              "stayTime": 2.5,
+              "cost": 0,
+              "description": "拍照與小店散步，保留咖啡廳休息時間。",
+              "notes": "",
+              "image": "https://images.unsplash.com/photo-1534274867514-d5b47ef89ed7?w=600"
+            }
+          ]
+        }
+      },
+      "packingItems": {
+        "Day 1": {
+          "date": "2026-01-05",
+          "items": [
+            {
+              "name": "護照",
+              "category": "重要文件"
+            },
+            {
+              "name": "保暖外套",
+              "category": "衣物"
+            }
+          ]
+        },
+        "Day 2": {
+          "date": "2026-01-06",
+          "items": [
+            {
+              "name": "圍巾",
+              "category": "衣物"
+            },
+            {
+              "name": "相機",
+              "category": "電子用品"
+            }
+          ]
+        }
+      },
+      "shoppingItems": [
+        {
+          "name": "蜂蜜奶油洋芋片",
+          "checked": false
+        },
+        {
+          "name": "面膜",
+          "checked": false
+        }
+      ],
+      "transfers": 0,
+      "layovers": []
+    }
+  ]
+}

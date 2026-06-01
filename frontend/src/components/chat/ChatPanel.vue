@@ -45,7 +45,7 @@
   <!-- 半開狀態 -->
   <div
     v-else
-    class="fixed top-0 left-0 h-full bg-white shadow-xl z-40 flex flex-col"
+    class="fixed left-0 top-16 bottom-0 bg-white shadow-xl z-30 flex flex-col"
     :style="{ width: panelWidth + 'px' }"
   >
     <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
@@ -83,18 +83,30 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import ChatWindow from './ChatWindow.vue'
 import ChatInput from './ChatInput.vue'
 import { sendChat } from '../../api/trip'
 
 const props = defineProps({ tripId: String })
+const emit = defineEmits(['layout-change'])
 
 const panelState = ref('closed')
 const messages = ref([])
 const isLoading = ref(false)
 const panelWidth = ref(400)
 const isDragging = ref(false)
+
+watch(
+  [panelState, panelWidth],
+  ([state, width]) => {
+    emit('layout-change', {
+      isOpen: state === 'half',
+      width: state === 'half' ? width : 0,
+    })
+  },
+  { immediate: true }
+)
 
 const handleSend = async (content) => {
   messages.value.push({ role: 'user', content })

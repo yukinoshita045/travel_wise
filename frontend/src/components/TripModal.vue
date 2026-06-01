@@ -53,7 +53,7 @@
                               <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
                                   <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                               </div>
-                                <select v-model="form.transfers" class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#2B55CC]/50 focus:border-[#2B55CC] outline-none transition-all appearance-none bg-white">
+                                <select v-model.number="form.transfers" class="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#2B55CC]/50 focus:border-[#2B55CC] outline-none transition-all appearance-none bg-white">
                                     <option :value="0">直飛（無轉機）</option>
                                     <option v-for="n in 10" :key="n" :value="n">轉機 {{ n }} 次</option>
                                 </select>
@@ -108,37 +108,31 @@
 <script setup>
 import { ref, reactive, computed, watch } from 'vue';
 
-// 接收來自 App.vue 的資料 (用來判斷是新增還是編輯，以及載入中狀態)
 const props = defineProps({
   tripData: { type: Object, default: null },
   isSubmitting: { type: Boolean, default: false }
 });
 
-// 定義可以回傳給 App.vue 的事件
 const emit = defineEmits(['close', 'submit']);
 
 const modalStep = ref(1);
 
-// 表單狀態
 const form = reactive({
   destination: props.tripData ? props.tripData.title : '',
-  startDate: '',
-  endDate: '',
-  transfers: 0,
-  layovers: [], // 這裡改成陣列，用來裝多個轉機資訊！
+  startDate: props.tripData ? props.tripData.startDate : '',
+  endDate: props.tripData ? props.tripData.endDate : '',
+  transfers: props.tripData ? Number(props.tripData.transfers || 0) : 0,
+  layovers: props.tripData?.layovers ? props.tripData.layovers.map((layover) => ({ ...layover })) : [],
   companion: props.tripData && props.tripData.users !== '僅自己' ? props.tripData.users : ''
 });
 
-// 魔法在這裡！監聽轉機次數，自動幫 layovers 陣列增減物件
 watch(() => form.transfers, (newCount) => {
   const currentCount = form.layovers.length;
   if (newCount > currentCount) {
-    // 數量變多：自動補齊缺少的填寫框
     for (let i = currentCount; i < newCount; i++) {
       form.layovers.push({ city: '', hours: '' });
     }
   } else if (newCount < currentCount) {
-    // 數量變少：直接把多出來的尾巴砍掉
     form.layovers.splice(newCount);
   }
 }, { immediate: true });
@@ -150,7 +144,6 @@ const primaryButtonText = computed(() => {
   return props.tripData ? '儲存變更' : '確認新增';
 });
 
-// 表單驗證邏輯
 const validateForm = () => {
   let isValid = true; errors.destination = ''; errors.dates = '';
   if (!form.destination.trim()) { errors.destination = '請填寫目的地'; isValid = false; }
@@ -161,13 +154,11 @@ const validateForm = () => {
   return isValid;
 };
 
-// 按下確認鈕
 const handleSubmit = () => {
   if (!validateForm()) return;
   if (modalStep.value === 1 && form.transfers > 0) {
       modalStep.value = 2;
   } else {
-      // 驗證成功後，整包資料會帶著全新的 layovers 陣列往外丟給後端！
       emit('submit', form);
   }
 };

@@ -1,5 +1,5 @@
 <template>
-    <div class="bg-white rounded-3xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative cursor-pointer group">
+    <div @click="$emit('open', trip)" class="bg-white rounded-3xl p-6 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-slate-50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 relative cursor-pointer group">
         <div v-if="trip.isUpcoming" class="absolute top-5 right-14">
             <span class="flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-600 text-xs font-bold tracking-wider rounded-full border border-red-100">
                 <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> 即將到來！
@@ -22,11 +22,10 @@
             <div class="flex flex-wrap gap-2">
                 <span class="px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md">疲勞指數：{{ trip.fatigue }}</span>
                 <span class="px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md">天氣：{{ trip.weather }}</span>
-                
+
                 <span v-if="trip.transfers !== undefined" class="px-2.5 py-1 bg-slate-50 border border-slate-100 rounded-md">
                     {{ trip.transfers === 0 ? '直飛' : `轉機 ${trip.transfers} 次` }}
                 </span>
-                
             </div>
         </div>
     </div>
@@ -42,5 +41,5 @@ defineProps({
 });
 
 // 定義這個元件可以向外發送哪些事件 (Emits)
-defineEmits(['edit']);
+defineEmits(['edit', 'open']);
 </script>
