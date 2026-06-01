@@ -1,112 +1,161 @@
 import os
 import requests
 from datetime import datetime
-import pytz # 處理時區相減問題
+import pytz 
 
-# 機場縮寫與國家/城市對應
-AIRPORT_DB = {
-    "NRT": {"city": "Tokyo", "country": "Japan", "timezone": "Asia/Tokyo"},
-    "HND": {"city": "Tokyo", "country": "Japan", "timezone": "Asia/Tokyo"},
-    "KIX": {"city": "Osaka", "country": "Japan", "timezone": "Asia/Tokyo"},
-    "NGO": {"city": "Nagoya", "country": "Japan", "timezone": "Asia/Tokyo"},
-    "FUK": {"city": "Fukuoka", "country": "Japan", "timezone": "Asia/Tokyo"},
-    "CTS": {"city": "Sapporo", "country": "Japan", "timezone": "Asia/Tokyo"},
-    "TPE": {"city": "Taipei", "country": "Taiwan", "timezone": "Asia/Taipei"},
-    "KHH": {"city": "Kaohsiung", "country": "Taiwan", "timezone": "Asia/Taipei"},
-    "JFK": {"city": "New York", "country": "USA", "timezone": "America/New_York"},
-    "LAX": {"city": "Los Angeles", "country": "USA", "timezone": "America/Los_Angeles"},
-    "LHR": {"city": "London", "country": "UK", "timezone": "Europe/London"},
-    "CDG": {"city": "Paris", "country": "France", "timezone": "Europe/Paris"},
-    "SIN": {"city": "Singapore", "country": "Singapore", "timezone": "Asia/Singapore"},
-    "HKG": {"city": "Hong Kong", "country": "Hong Kong", "timezone": "Asia/Hong_Kong"},
-    "ICN": {"city": "Seoul", "country": "South Korea", "timezone": "Asia/Seoul"},
+import airportsdata
+import pycountry
+
+# 載入全球機場資料庫 (以 IATA 代碼為 Key)
+AIRPORTS = airportsdata.load('IATA')
+
+# 自訂國家名稱修正字典
+COUNTRY_NAME_OVERRIDES = {
+    "TW": "Taiwan", "US": "USA", "GB": "UK",
+    "KR": "South Korea", "RU": "Russia"
 }
 
-def fetch_flight_info(flight_number: str) -> dict:
-    """
-    呼叫 Aviationstack API 獲取真實航班資訊
-    並將機場縮寫代碼轉換成國家、城市、時區與起降時間
-    """
-    api_key = os.getenv("AVIATIONSTACK_API_KEY")
-    if not api_key:
-        raise ValueError("系統設定中缺少 AVIATIONSTACK_API_KEY，請檢查 .env 檔案")
+# 常見航空公司代碼對應表
+COMMON_AIRLINES = {
+    "BR": "EVA Air", "CI": "China Airlines", "JX": "STARLUX Airlines",
+    "IT": "Tigerair Taiwan", "AE": "Mandarin Airlines", "B7": "UNI Air",
+    "CX": "Cathay Pacific", "JL": "Japan Airlines", "NH": "All Nippon Airways",
+    "AY": "Finnair", "EK": "Emirates", "SQ": "Singapore Airlines"
+}
 
-    flight_number = flight_number.upper().strip()
+def get_airport_details(iata_code: str) -> dict:
+    """從全球開源庫回傳城市、國家與時區"""
+    if not iata_code:
+        return {"city": "Unknown", "country": "Unknown", "timezone": "UTC"}
+
+    iata_code = iata_code.upper()
+    airport_info = AIRPORTS.get(iata_code)
     
-    # 呼叫 Aviationstack 航班查詢端點 (免費版限用 http)
-    url = f"http://api.aviationstack.com/v1/flights?access_key={api_key}&flight_iata={flight_number}"
+    if not airport_info:
+        return {"city": iata_code, "country": "Unknown", "timezone": "UTC"}
+        
+    country_code = airport_info.get("country", "")
+    
+    if country_code in COUNTRY_NAME_OVERRIDES:
+        country_name = COUNTRY_NAME_OVERRIDES[country_code]
+    else:
+        country_obj = pycountry.countries.get(alpha_2=country_code)
+        country_name = country_obj.name if country_obj else country_code
+
+    return {
+        "city": airport_info.get("city", iata_code),
+        "country": country_name,
+        "timezone": airport_info.get("tz", "UTC")
+    }
+
+def fetch_flight_info(flight_input: str, target_date: str) -> dict:
+    """呼叫 AeroDataBox API 獲取未來航班精準資訊"""
+    rapidapi_key = os.getenv("RAPIDAPI_KEY")
+    if not rapidapi_key:
+        raise ValueError("系統設定中缺少 RAPIDAPI_KEY，請檢查 .env 檔案")
+
+    flight_input = flight_input.upper().strip()
+
+    # 呼叫 AeroDataBox
+    url = f"https://aerodatabox.p.rapidapi.com/flights/number/{flight_input}/{target_date}"
+    headers = {
+        "X-RapidAPI-Key": rapidapi_key,
+        "X-RapidAPI-Host": "aerodatabox.p.rapidapi.com"
+    }
     
     try:
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 404:
+            raise ValueError(f"查無 {target_date} 出發的 {flight_input} 航班排程，請確認班表是否正確")
+        response.raise_for_status()
         res_json = response.json()
     except Exception as e:
-        raise RuntimeError(f"連線至航班外部 API 失敗: {str(e)}")
+        if isinstance(e, ValueError):
+            raise e
+        raise RuntimeError(f"連線至外部航班系統失敗: {str(e)}")
 
-    # 驗證 API 回傳結果
-    if "data" not in res_json or not res_json["data"]:
-        raise ValueError(f"找不到航班編號 {flight_number} 的即時資訊，請確認編號是否正確")
+    if not res_json or not isinstance(res_json, list):
+        raise ValueError(f"查無 {target_date} 出發的 {flight_input} 航班排程資料")
 
-    # 取得最新的一筆航班排程資料
-    raw_flight = res_json["data"][0]
-    
-    dep_data = raw_flight.get("departure", {})
-    arr_data = raw_flight.get("arrival", {})
-    
-    dep_code = dep_data.get("iata")
-    arr_code = arr_data.get("iata")
+    flight_data = res_json[0]
+
+    dep_data = flight_data.get("departure", {})
+    arr_data = flight_data.get("arrival", {})
+
+    dep_code = dep_data.get("airport", {}).get("iata")
+    arr_code = arr_data.get("airport", {}).get("iata")
 
     if not dep_code or not arr_code:
-        raise ValueError(f"航班 {flight_number} 的起降機場代碼不完整，無法進行評估")
+        raise ValueError(f"航班 {flight_input} 的起降機場代碼不完整")
 
-    # 直接讀取 DB 或 API 的預設值
-    db_dep = AIRPORT_DB.get(dep_code, {})
-    db_arr = AIRPORT_DB.get(arr_code, {})
+    db_dep = get_airport_details(dep_code)
+    db_arr = get_airport_details(arr_code)
 
-    final_dep_country = db_dep.get("country") or dep_data.get("timezone", "Unknown").split("/")[0]
-    final_arr_country = db_arr.get("country") or arr_data.get("timezone", "Unknown").split("/")[0]
-    
-    final_dep_city = db_dep.get("city") or dep_data.get("airport", dep_code)
-    final_arr_city = db_arr.get("city") or arr_data.get("airport", arr_code)
+    dep_terminal = dep_data.get("terminal") or "尚未提供"
+    dep_gate = dep_data.get("gate") or "尚未提供"
+    arr_terminal = arr_data.get("terminal") or "尚未提供"
+    arr_gate = arr_data.get("gate") or "尚未提供"
 
-    final_dep_tz = db_dep.get("timezone", dep_data.get("timezone", "UTC"))
-    final_arr_tz = db_arr.get("timezone", arr_data.get("timezone", "UTC"))
+    def extract_time(data_dict, fallback_date):
+        # 1. 尋找直接的字串欄位
+        raw_time = (
+            data_dict.get("scheduledTimeLocal") or 
+            data_dict.get("actualTimeLocal") or 
+            data_dict.get("scheduledTimeUtc")
+        )
+        # 2. 如果沒有，尋找藏在巢狀字典裡的欄位
+        if not raw_time and "scheduledTime" in data_dict and isinstance(data_dict["scheduledTime"], dict):
+            raw_time = data_dict["scheduledTime"].get("local") or data_dict["scheduledTime"].get("utc")
+            
+        # 3. 如果還是抓不到，啟用防呆
+        if not raw_time:
+            return f"{fallback_date}T00:00:00"
+            
+        # 4. 統一字串格式 (切掉尾部時區，並確保擁有秒數)
+        clean_time = raw_time.replace(" ", "T")
+        if len(clean_time) >= 16:
+            return clean_time[:16] + ":00" # 強制將 YYYY-MM-DDTHH:MM 補上 :00
+        return f"{fallback_date}T00:00:00"
 
-    # 解析起降時間字串 (ISO 8601 格式處理)
-    dep_time_str = dep_data.get("scheduled", "")
-    arr_time_str = arr_data.get("scheduled", "")
-    
-    # 加入時區校正，算出真實飛行時間
+    dep_time_str = extract_time(dep_data, target_date)
+    arr_time_str = extract_time(arr_data, target_date)
+
+    # 時區校正與真實飛行時間計算
     try:
-        # 轉成 naive datetime
-        dt_dep = datetime.strptime(dep_time_str[:19], "%Y-%m-%dT%H:%M:%S")
-        dt_arr = datetime.strptime(arr_time_str[:19], "%Y-%m-%dT%H:%M:%S")
+        dt_dep = datetime.strptime(dep_time_str, "%Y-%m-%dT%H:%M:%S")
+        dt_arr = datetime.strptime(arr_time_str, "%Y-%m-%dT%H:%M:%S")
         
-        # 賦予它們各自的時區，並統一轉成 UTC 來相減
-        dep_utc = pytz.timezone(final_dep_tz).localize(dt_dep).astimezone(pytz.UTC)
-        arr_utc = pytz.timezone(final_arr_tz).localize(dt_arr).astimezone(pytz.UTC)
+        dep_utc = pytz.timezone(db_dep["timezone"]).localize(dt_dep).astimezone(pytz.UTC)
+        arr_utc = pytz.timezone(db_arr["timezone"]).localize(dt_arr).astimezone(pytz.UTC)
         
         duration_hr = round(abs((arr_utc - dep_utc).total_seconds()) / 3600, 1)
-        
         if duration_hr > 24 or duration_hr == 0: 
             duration_hr = 3.5
     except Exception:
-        # 防呆：解析失敗則給定安全預設值
         duration_hr = 3.5
 
+    api_airline_name = flight_data.get("airline", {}).get("name")
+    airline_name = api_airline_name or COMMON_AIRLINES.get(flight_input[:2], "尚未提供")
+
     return {
-        "flightNumber": flight_number,
+        "flightNumber": flight_input,
+        "airline": airline_name,
         "departure": {
             "code": dep_code,
-            "city": final_dep_city,
-            "country": final_dep_country,
-            "timezone": final_dep_tz,
+            "city": db_dep["city"],
+            "country": db_dep["country"],
+            "timezone": db_dep["timezone"],
+            "terminal": dep_terminal,
+            "gate": dep_gate,
             "time": dep_time_str
         },
         "arrival": {
             "code": arr_code,
-            "city": final_arr_city,
-            "country": final_arr_country, 
-            "timezone": final_arr_tz,
+            "city": db_arr["city"],
+            "country": db_arr["country"], 
+            "timezone": db_arr["timezone"],
+            "terminal": arr_terminal,
+            "gate": arr_gate,
             "time": arr_time_str
         },
         "flightDurationHours": duration_hr
