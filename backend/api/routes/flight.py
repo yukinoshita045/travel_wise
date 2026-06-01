@@ -1,6 +1,6 @@
 """
 api/routes/flight.py
-GET /api/flight/info — 航班編號自動帶入功能
+GET /api/flight/info — 航班編號與日期自動帶入功能
 """
 
 from flask import Blueprint, request, jsonify
@@ -13,16 +13,22 @@ flight_bp = Blueprint("flight", __name__)
 @require_auth
 def get_flight_info():
     """
-    根據航班編號查詢即時起降、日期與機場國家資料
-    使用情境：前端輸入航班號後，調用此端點自動填入後續表單
+    根據航班編號與出發日期查詢即時起降、航廈與機場國家資料
+    使用情境：前端輸入航班號與日期後，調用此端點自動填入後續表單
+    前端必須傳入：
+    ?flightNum=IT203 (航班編號)
+    &date=2026-12-25 (出發日期，格式 YYYY-MM-DD)
     """
     flight_num = request.args.get("flightNum")
-    if not flight_num:
-        return jsonify({"error": "請提供航班編號參數 (flightNum)"}), 400
+    target_date = request.args.get("date") # 接收前端傳來的出發日期
+    
+    # 確定兩個參數都有給齊
+    if not flight_num or not target_date:
+        return jsonify({"error": "請提供完整的航班編號 (flightNum) 與 出發日期 (date)"}), 400
         
     try:
-        # 呼叫服務獲取真實 API 數據
-        data = fetch_flight_info(flight_num)
+        # 將兩個參數都交給 Service 處理
+        data = fetch_flight_info(flight_num, target_date)
         return jsonify(data), 200
     except ValueError as e:
         return jsonify({"error": str(e)}), 404
