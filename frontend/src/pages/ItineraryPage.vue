@@ -7,6 +7,7 @@ import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.v
 import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
 import Navbar from '../components/Navbar.vue'
 import WeatherIcon from '../components/WeatherIcon.vue'
+import ChatPanel from '../components/chat/ChatPanel.vue'
 import { getTripOrDefault } from '../data/travelStore.js'
 
 const route = useRoute()
@@ -25,6 +26,7 @@ const openMenu = ref(null)
 const showModal = ref(false)
 const showEditModal = ref(false)
 const selectedItinerary = ref(null)
+const chatLayout = ref({ isOpen: false, width: 0 })
 
 const packingItems = ref([])
 
@@ -144,10 +146,17 @@ const handleDelete = (day, idToDelete) => {
 const goBack = () => {
   router.push(`/trip/${trip.value.id}`)
 }
+
+const handleChatLayoutChange = (layout) => {
+  chatLayout.value = layout
+}
 </script>
 
 <template>
-  <div class="h-screen overflow-hidden bg-[#F8FAFC] px-6 pb-6 pt-24 flex flex-col">
+  <div
+    class="h-screen overflow-hidden bg-[#F8FAFC] px-6 pb-6 pt-24 flex flex-col transition-[padding-left] duration-200"
+    :style="{ paddingLeft: chatLayout.isOpen ? `${chatLayout.width + 24}px` : undefined }"
+  >
     <Navbar />
 
     <!-- Header -->
@@ -321,6 +330,11 @@ const goBack = () => {
       :model-value="editForm"
       @close="showEditModal = false"
       @submit="handleUpdate"
+    />
+
+    <ChatPanel
+      :trip-id="String(route.params.id)"
+      @layout-change="handleChatLayoutChange"
     />
 
   </div>
