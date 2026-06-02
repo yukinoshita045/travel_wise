@@ -554,6 +554,11 @@ GPT 自動呼叫工具：
 | `PUT /api/trips/<id>` | ✅ | 更新旅程 |
 | `DELETE /api/trips/<id>` | ✅ | 刪除旅程 |
 | `POST /api/trips/sync` | ✅ | 批次 upsert |
+| `GET /api/currency/rates` | ✅ | 前端 TripOverviewPage 串接 |
+| `POST /api/currency/convert` | ✅ | 11 種幣別 |
+| `GET /api/weather` | ✅ | 前端 TripOverviewPage + ItineraryPage 串接 |
+| `POST /api/fatigue/analyze` | ✅ | 前端 FlightPage 串接，SAFTE 正式版 |
+| `GET /api/flight/info` | ✅ | 需 `AVIATIONSTACK_API_KEY` |
 
 ---
 

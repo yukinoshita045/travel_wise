@@ -172,7 +172,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Navbar from '../components/Navbar.vue'
 import AddItemModal from '../components/item/AddItemModal.vue'
@@ -180,12 +180,16 @@ import ShoppingListModal from '../components/shopping/ShoppingListModal.vue'
 import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.vue'
 import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
 import WeatherIcon from '../components/WeatherIcon.vue'
-import { getTripOrDefault, saveTripChanges } from '../data/travelStore.js'
+import { getTripOrDefault, saveTripChanges, refreshTripLiveData } from '../data/travelStore.js'
 
 const route = useRoute()
 const router = useRouter()
 const trip = computed(() => getTripOrDefault(route.params.id))
-const showPackingModal = ref(false)
+
+onMounted(() => {
+  const id = route.params.id || trip.value?.id
+  if (id) refreshTripLiveData(id)
+})
 const showShoppingModal = ref(false)
 const selectedItinerary = ref(null)
 const selectedItineraryDate = ref('')

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   Clock,
@@ -8,7 +8,7 @@ import {
   Plane
 } from "lucide-vue-next";
 import Navbar from "../components/Navbar.vue";
-import { getTripOrDefault } from "../data/travelStore.js";
+import { getTripOrDefault, refreshFatigueForTrip } from "../data/travelStore.js";
 
 const route = useRoute();
 const router = useRouter();
@@ -19,12 +19,29 @@ const index = ref(0);
 
 const flightData = computed(() => flights.value[index.value] || flights.value[0]);
 
+// ── 疲勞詳細資料（從 _fatigueDetail 取，沒有就用預設值）────────
+const fatigueDetail = computed(() => trip.value._fatigueDetail || null)
+const fatigueScore = computed(() => {
+  if (fatigueDetail.value?.energyBattery != null) return fatigueDetail.value.energyBattery
+  // fallback：把 trip.fatigue "45%" → 55（100 - 45）
+  const raw = trip.value.fatigue || ''
+  const num = parseFloat(raw)
+  return isNaN(num) ? 82 : Math.max(0, 100 - num)
+})
+const fatigueExplanation = computed(() =>
+  fatigueDetail.value?.explanation || '建議抵達後休息 2 小時，能更好地進行後續行程。'
+)
+const suggestedStartTime = computed(() =>
+  fatigueDetail.value?.suggestedStartTime || '10:00'
+)
+const recoverHours = computed(() =>
+  fatigueDetail.value?.recoverHours ?? 2
+)
+
 const formatDuration = (hours) => {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
-
   if (m === 0) return `${h}h`;
-
   return `${h}h ${m}m`;
 };
 
@@ -53,10 +70,14 @@ const prevFlight = () => {
     (index.value - 1 + flights.value.length) % flights.value.length;
 };
 
-
 const goBack = () => {
   router.push(`/trip/${trip.value.id}`);
 };
+
+onMounted(() => {
+  const id = route.params.id || trip.value?.id
+  if (id) refreshFatigueForTrip(id)
+})
 </script>
 
 <template>
@@ -259,16 +280,20 @@ const goBack = () => {
               </p>
 
               <p class="font-bold text-[#7E99BF]">
-                82%
+                {{ fatigueScore }}%
               </p>
             </div>
 
             <div class="h-3 overflow-hidden rounded-full bg-gray-200">
-              <div class="h-full w-[82%] bg-[#7E99BF]" />
+              <div class="h-full bg-[#7E99BF]" :style="{ width: fatigueScore + '%' }" />
             </div>
 
             <p class="mt-3 text-sm text-gray-500">
-              建議抵達後休息 2 小時，能更好地進行後續行程。
+              {{ fatigueExplanation }}
+            </p>
+
+            <p v-if="fatigueDetail" class="mt-1 text-xs text-[#7E99BF]">
+              建議活動起始：{{ suggestedStartTime }}　｜　恢復需 {{ recoverHours }} 小時
             </p>
 
           </div>

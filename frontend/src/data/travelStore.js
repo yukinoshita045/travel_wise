@@ -7,6 +7,9 @@ import {
   deleteTripApi,
   syncTrips as apiSyncTrips,
 } from '../api/trips'
+import { fetchWeather } from '../api/weather'
+import { fetchRates, inferCurrencyFromDestination } from '../api/currency'
+import { analyzeFatigue } from '../api/fatigue'
 
 const STORAGE_KEY = 'travelwise:data'
 
@@ -317,4 +320,109 @@ export const saveTripChanges = async (tripId) => {
 export const resetTravelData = () => {
   trips.splice(0, trips.length, ...normalizeTravelData(travelData).trips)
   persistTravelData()
+}
+
+// ── 匯率：查詢並更新旅程的 currencyRate / currencyUpdatedAt ──
+export const refreshCurrencyForTrip = async (tripId) => {
+  const trip = getTripById(tripId)
+  if (!trip) return
+
+  const toCurrency = inferCurrencyFromDestination(trip.destination)
+  if (!toCurrency) return // 無法推斷幣別，跳過
+
+  try {
+    const res = await fetchRates('TWD')
+    const rates = res.data?.rates || {}
+    const rate = rates[toCurrency]
+    if (!rate) return
+
+    const now = new Date()
+    const timeStr = now.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })
+    trip.currencyRate = `1 TWD = ${rate.toFixed(2)} ${toCurrency}`
+    trip.currencyUpdatedAt = `最後更新：${timeStr}`
+    trip.budget = 'TWD'
+    persistTravelData()
+    console.info(`[TravelStore] 匯率已更新 → ${trip.currencyRate}`)
+  } catch (err) {
+    console.warn('[TravelStore] 匯率查詢失敗。', err?.message)
+  }
+}
+
+// ── 天氣：查詢並寫入每天的 weather emoji ──────────────────────
+const conditionToEmoji = (condition = '') => {
+  if (condition.includes('snow') || condition.includes('雪')) return '❄'
+  if (condition.includes('rain') || condition.includes('drizzle') || condition.includes('雨')) return '☔'
+  if (condition.includes('wind') || condition.includes('風')) return '🌬'
+  if (condition.includes('cloud') || condition.includes('overcast') || condition.includes('陰')) return '🌥'
+  if (condition.includes('clear') || condition.includes('sunny') || condition.includes('晴')) return '☀'
+  return '🌤'
+}
+
+export const refreshWeatherForTrip = async (tripId) => {
+  const trip = getTripById(tripId)
+  if (!trip || !trip.destination) return
+
+  try {
+    const res = await fetchWeather(trip.destination)
+    const forecast = res.data?.forecast || []
+    if (!forecast.length) return
+
+    // 建立 date → condition 的 map
+    const dateMap = {}
+    forecast.forEach((f) => { dateMap[f.date] = f.condition })
+
+    // 把每天的天氣 emoji 寫進 itinerary
+    Object.values(trip.itinerary || {}).forEach((day) => {
+      if (day.date && dateMap[day.date]) {
+        day.weather = conditionToEmoji(dateMap[day.date])
+      }
+    })
+
+    persistTravelData()
+    console.info(`[TravelStore] 天氣已更新 (${trip.destination})`)
+  } catch (err) {
+    console.warn('[TravelStore] 天氣查詢失敗。', err?.message)
+  }
+}
+
+// ── 疲勞指數：從第一段航班計算並寫回 trip.fatigue ─────────────
+export const refreshFatigueForTrip = async (tripId) => {
+  const trip = getTripById(tripId)
+  if (!trip) return
+
+  const flight = trip.flights?.[0]
+  if (!flight) return // 沒有航班資料，跳過
+
+  const dep = flight.departure
+  const arr = flight.arrival
+  if (!dep?.timezone || !arr?.timezone || !flight.flightDurationHours) return
+
+  try {
+    const payload = {
+      departureTimezone:   dep.timezone,
+      arrivalTimezone:     arr.timezone,
+      flightDurationHours: flight.flightDurationHours,
+      layoverCount:        (trip.flights?.length || 1) - 1,
+      isRedEye:            false,
+      travelers:           [{ ageGroup: 'adult', fitnessLevel: 'medium' }],
+      hasNapped:           false,
+    }
+    const res = await analyzeFatigue(payload)
+    const data = res.data
+    if (!data?.baseScore == null) return
+
+    trip.fatigue = `${data.baseScore}%`
+    trip._fatigueDetail = data // 保存完整 detail 供 FlightPage 使用
+    persistTravelData()
+    console.info(`[TravelStore] 疲勞指數已更新 → ${trip.fatigue}`)
+  } catch (err) {
+    console.warn('[TravelStore] 疲勞分析失敗。', err?.message)
+  }
+}
+
+// ── 一次更新單筆旅程的所有即時資料（匯率 + 天氣 + 疲勞）──────
+export const refreshTripLiveData = (tripId) => {
+  refreshCurrencyForTrip(tripId)
+  refreshWeatherForTrip(tripId)
+  refreshFatigueForTrip(tripId)
 }

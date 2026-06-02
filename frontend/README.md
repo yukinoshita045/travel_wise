@@ -99,12 +99,26 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 | `deleteTrip(id)` | 刪除旅程 |
 | `saveTripChanges(id)` | 行程項目變更後呼叫，推送給後端 |
 | `getTripOrDefault(id)` | 找不到 id 時 fallback 第一筆 |
+| `refreshCurrencyForTrip(id)` | 查詢即時匯率並寫入 `trip.currencyRate` |
+| `refreshWeatherForTrip(id)` | 查詢 7 天天氣並寫入每日 `itinerary[day].weather` |
+| `refreshFatigueForTrip(id)` | 從第一段航班計算 SAFTE 疲勞指數並寫入 `trip.fatigue` |
+| `refreshTripLiveData(id)` | 一次呼叫以上三個（TripOverviewPage onMounted 使用）|
 
 資料格式以 `localStorage` 作為離線快取，`apiOnline` 旗標控制是否同步。
 
 ---
 
-## 💬 AI 聊天面板
+## � 前後端串接狀況
+
+| 功能 | 頁面 | 後端 API | 狀態 |
+|------|------|----------|------|
+| AI 行程建議 | ItineraryPage（ChatPanel）| `POST /api/chat` | ✅ |
+| 旅程 CRUD | travelStore | `GET/POST/PUT/DELETE /api/trips` | ✅ |
+| **即時匯率** | TripOverviewPage | `GET /api/currency/rates` | ✅ |
+| **天氣預報** | TripOverviewPage + ItineraryPage | `GET /api/weather` | ✅ |
+| **疲勞指數** | FlightPage（時差適應指數卡片）| `POST /api/fatigue/analyze` | ✅ |
+| 景點搜尋 | — | `GET /api/places/search` | 後端有，前端未串 |
+| 預算計算 | — | `POST /api/budget/calculate` | 後端有，前端未串 |
 
 - 進入任一旅程的「行程規劃」頁面，點擊左下角 **AI 行程建議** 按鈕開啟
 - 支援**快捷選項**（文化探索、大眾運輸…）或自由輸入
