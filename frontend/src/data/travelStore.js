@@ -358,12 +358,32 @@ const conditionToEmoji = (condition = '') => {
   return '🌤'
 }
 
+// 中文目的地 → 英文城市名（給 Open-Meteo geocoding 使用）
+const toEnglishDestination = (destination = '') => {
+  const map = {
+    '東京': 'Tokyo', '大阪': 'Osaka', '京都': 'Kyoto', '札幌': 'Sapporo',
+    '福岡': 'Fukuoka', '名古屋': 'Nagoya', '沖繩': 'Okinawa', '日本': 'Japan',
+    '首爾': 'Seoul', '釜山': 'Busan', '濟州': 'Jeju', '韓國': 'Korea',
+    '曼谷': 'Bangkok', '清邁': 'Chiang Mai', '普吉': 'Phuket', '泰國': 'Thailand',
+    '香港': 'Hong Kong', '新加坡': 'Singapore',
+    '北京': 'Beijing', '上海': 'Shanghai', '廣州': 'Guangzhou', '深圳': 'Shenzhen',
+    '倫敦': 'London', '巴黎': 'Paris', '紐約': 'New York', '洛杉磯': 'Los Angeles',
+    '河內': 'Hanoi', '胡志明': 'Ho Chi Minh City', '吉隆坡': 'Kuala Lumpur',
+    '雪梨': 'Sydney', '墨爾本': 'Melbourne',
+  }
+  for (const [zh, en] of Object.entries(map)) {
+    if (destination.includes(zh)) return en
+  }
+  return destination // 本來就是英文或未知，直接傳
+}
+
 export const refreshWeatherForTrip = async (tripId) => {
   const trip = getTripById(tripId)
   if (!trip || !trip.destination) return
 
   try {
-    const res = await fetchWeather(trip.destination)
+    const englishDest = toEnglishDestination(trip.destination)
+    const res = await fetchWeather(englishDest)
     const forecast = res.data?.forecast || []
     if (!forecast.length) return
 
