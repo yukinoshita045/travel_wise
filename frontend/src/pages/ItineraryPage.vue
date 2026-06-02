@@ -8,7 +8,7 @@ import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
 import Navbar from '../components/Navbar.vue'
 import WeatherIcon from '../components/WeatherIcon.vue'
 import ChatPanel from '../components/chat/ChatPanel.vue'
-import { getTripOrDefault } from '../data/travelStore.js'
+import { getTripOrDefault, saveTripChanges } from '../data/travelStore.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -102,6 +102,7 @@ const handleUpdate = (updated) => {
       ...items[index],
       ...updated,
     }
+    saveTripChanges(trip.value.id || trip.value.tripId)
   }
 
   showEditModal.value = false
@@ -122,6 +123,7 @@ const handleSubmit = (payload) => {
   }
 
   tripData.value[selectedDay.value].items.push(newItem)
+  saveTripChanges(trip.value.id || trip.value.tripId)
 
   form.value = {
     id: '',
@@ -140,6 +142,7 @@ const handleDelete = (day, idToDelete) => {
   tripData.value[day].items = tripData.value[day].items.filter(
     (i) => i.id !== idToDelete
   )
+  saveTripChanges(trip.value.id || trip.value.tripId)
   openMenu.value = null
 }
 

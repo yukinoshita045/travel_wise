@@ -1,10 +1,15 @@
-# ── TravelWise Docker Compose ──
+# ── TravelWise Docker Compose ──────────────────────────────────────────
 # 啟動方式：docker compose up --build
-# 前端開發者照常在 frontend/ 跑 npm run dev，不需要進容器
+# 服務：redis | backend | frontend
+#
+# 本地存取：
+#   前端  → http://localhost:3000
+#   後端  → http://localhost:5001
+#   Swagger UI → http://localhost:5001/api/docs
 
 services:
 
-  # ── Redis 快取（景點 / 天氣）──
+  # ── Redis 快取（景點 / 天氣）──────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: travelwise_redis
@@ -17,7 +22,7 @@ services:
       timeout: 5s
       retries: 3
 
-  # ── Flask 後端 ──
+  # ── Flask 後端 ────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
@@ -26,19 +31,46 @@ services:
     ports:
       - "5001:5000"
     env_file:
-      - ./backend/.env           
+      - ./backend/.env
     environment:
       # Redis 指向容器內的 redis service（覆蓋 .env 的 localhost 設定）
       REDIS_URL: redis://redis:6379/0
-      # 開發模式：跳過 Firebase 驗證，不需要帶 Authorization header
+      # 開發模式：跳過 Firebase 驗證（Bearer TEST_MODE 即可存取所有 API）
       FLASK_TESTING: "true"
-      # 航班 API key（可留空，flight/info 端點會回 400 提示）
-      # AVIATIONSTACK_API_KEY: ""   # ← 填入後取消此行註解
     volumes:
-      # 掛載 firebase service account（不 commit，但本機需要這個檔案）
+      # 掛載 firebase service account（不 commit，本機需要此檔案）
       - ./backend/firebase_service_account.json:/app/firebase_service_account.json:ro
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/trips", "-H", "Authorization: Bearer TEST_MODE"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  # ── Vue 前端（Nginx 靜態服務）────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Build 時注入後端 API URL
+        # 瀏覽器直接打 API → 使用 localhost:5001（因為是從使用者瀏覽器發出）
+        VITE_API_URL: http://localhost:5001
+    container_name: travelwise_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
 

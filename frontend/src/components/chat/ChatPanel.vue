@@ -83,10 +83,11 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import ChatWindow from './ChatWindow.vue'
 import ChatInput from './ChatInput.vue'
 import { sendChat } from '../../api/trip'
+import { getTripOrDefault } from '../../data/travelStore'
 
 const props = defineProps({ tripId: String })
 const emit = defineEmits(['layout-change'])
@@ -96,6 +97,51 @@ const messages = ref([])
 const isLoading = ref(false)
 const panelWidth = ref(400)
 const isDragging = ref(false)
+const conversationId = ref(null)
+
+// 取當前旅程的真實資料，傳給 AI 作為上下文
+const trip = computed(() => getTripOrDefault(props.tripId))
+
+const getTripParams = () => {
+  const t = trip.value
+  if (!t) return { destination: '未知', days: 3, travelers: 1 }
+  const dayCount = t.dates?.match(/共(\d+)天/)?.[1] || 3
+  return {
+    destination: t.destination || t.title,
+    days: Number(dayCount),
+    travelers: 1,
+    startDate: t.startDate,
+    endDate: t.endDate,
+  }
+}
+
+/** 把 AI 回傳的 reply 轉成人類可讀的訊息文字 */
+const formatReply = (reply) => {
+  if (!reply) return '收到你的需求，以下是建議...'
+
+  // 行程 JSON 格式
+  if (reply.type === 'itinerary' && reply.content?.days) {
+    const days = reply.content.days
+    const title = reply.content.title || '行程建議'
+    let text = `**${title}**\n\n`
+    days.forEach((day) => {
+      text += `📅 Day ${day.dayNumber}${day.theme ? `：${day.theme}` : ''}\n`
+      ;(day.spots || []).forEach((spot) => {
+        text += `  🕐 ${spot.arrivalTime}  **${spot.name}**\n`
+        if (spot.description) text += `     ${spot.description}\n`
+        if (spot.notes) text += `     💡 ${spot.notes}\n`
+        text += '\n'
+      })
+    })
+    return text
+  }
+
+  // 純文字回覆
+  if (typeof reply.content === 'string') return reply.content
+  if (typeof reply === 'string') return reply
+
+  return '收到你的需求，以下是建議...'
+}
 
 watch(
   [panelState, panelWidth],
@@ -115,15 +161,19 @@ const handleSend = async (content) => {
   try {
     const response = await sendChat({
       message: content,
-      conversationId: null,
-      tripParams: { destination: 'Tokyo', days: 3, travelers: 1 },
+      conversationId: conversationId.value,
+      tripParams: getTripParams(),
     })
-    messages.value.push({
-      role: 'assistant',
-      content: response.data.message || '收到你的需求，以下是建議...',
-    })
-  } catch {
-    messages.value.push({ role: 'assistant', content: '發生錯誤，請稍後再試。' })
+
+    const data = response.data
+    // 保留 conversationId 維持對話連貫
+    if (data.conversationId) conversationId.value = data.conversationId
+
+    const replyText = formatReply(data.reply)
+    messages.value.push({ role: 'assistant', content: replyText })
+  } catch (err) {
+    console.error('[ChatPanel] API error:', err)
+    messages.value.push({ role: 'assistant', content: '⚠️ 發生錯誤，請稍後再試。' })
   } finally {
     isLoading.value = false
   }

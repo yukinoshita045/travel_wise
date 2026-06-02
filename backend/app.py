@@ -19,6 +19,7 @@ from api.routes.trip import trip_bp
 from utils.error_handlers import register_error_handlers
 from api.routes.flight import flight_bp
 from api.routes.currency import currency_bp
+from api.routes.trips import trips_bp
 
 
 def create_app():
@@ -27,7 +28,11 @@ def create_app():
     app.json.ensure_ascii = False             # Flask 3.x
 
     # ── CORS（允許前端 localhost:5173 存取）──
-    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "https://your-production-domain.com"]}})
+    CORS(app, resources={r"/api/*": {"origins": [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://your-production-domain.com",
+    ]}})
 
     # ── Swagger UI → http://localhost:5000/api/docs ──
     Swagger(app, config=SWAGGER_CONFIG)
@@ -45,6 +50,7 @@ def create_app():
     app.register_blueprint(trip_bp,       url_prefix="/api/trip")
     app.register_blueprint(flight_bp,     url_prefix="/api/flight")
     app.register_blueprint(currency_bp,   url_prefix="/api/currency")
+    app.register_blueprint(trips_bp,      url_prefix="/api/trips")
 
     # ── 統一錯誤處理 ──
     register_error_handlers(app)

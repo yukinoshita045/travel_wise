@@ -23,11 +23,14 @@ backend/
 ├── api/
 │   ├── routes/
 │   │   ├── trip.py                 # ⭐ POST /api/trip/plan（一站式整合端點）
+│   │   ├── trips.py                # ⭐ GET/POST/PUT/DELETE /api/trips（旅程 CRUD）
 │   │   ├── chat.py                 # POST /api/chat
 │   │   ├── weather.py              # GET  /api/weather
 │   │   ├── places.py               # GET  /api/places/search, /api/places/<xid>
 │   │   ├── budget.py               # POST /api/budget/calculate
 │   │   ├── itinerary.py            # POST /api/itinerary/recommend + CRUD
+│   │   ├── currency.py             # GET  /api/currency/rates, POST /api/currency/convert
+│   │   ├── flight.py               # GET  /api/flight/info
 │   │   └── fatigue.py              # POST /api/fatigue/analyze（隊友負責）
 │   └── swagger/
 │       ├── weather.yaml
@@ -43,11 +46,14 @@ backend/
 │   ├── weather_service.py          # Open-Meteo 天氣查詢 + Redis 快取
 │   ├── budget_service.py           # 預算分配計算（五類比例）
 │   ├── itinerary_service.py        # 行程生成 + Nearest Neighbor 地理排序
-│   └── fatigue_service.py          # 疲勞分析（TODO，隊友實作）
+│   ├── currency_service.py         # ExchangeRate-API 匯率查詢 + Redis 快取 1hr
+│   ├── flight_service.py           # Aviationstack 航班查詢
+│   └── fatigue_service.py          # 疲勞分析（SAFTE 模型）
 │
 ├── models/
 │   ├── conversation.py             # 對話紀錄 MongoDB CRUD
 │   ├── itinerary.py                # 行程 MongoDB CRUD
+│   ├── trip_store.py               # ⭐ 使用者旅程 MongoDB CRUD（trips collection）
 │   └── user.py                     # 使用者 MongoDB CRUD
 │
 └── utils/
@@ -343,7 +349,7 @@ GPT 自動呼叫工具：
 
 ---
 
-### 行程 CRUD
+### 行程 CRUD（itinerary — AI 生成結果）
 
 | Method | 路由 | 說明 |
 |--------|------|------|
@@ -351,6 +357,36 @@ GPT 自動呼叫工具：
 | `GET` | `/api/itinerary/<id>` | 取得單一行程 |
 | `PUT` | `/api/itinerary/<id>` | 更新行程（拖拉排序後呼叫）|
 | `DELETE` | `/api/itinerary/<id>` | 刪除行程 |
+
+---
+
+### ⭐ 旅程 CRUD — `GET/POST/PUT/DELETE /api/trips`
+
+對應前端 `travelStore.js`，儲存使用者自建旅程（含 `address` 欄位）。
+
+| Method | 路由 | 說明 |
+|--------|------|------|
+| `GET` | `/api/trips` | 取得目前使用者的所有旅程 |
+| `POST` | `/api/trips` | 建立新旅程 |
+| `GET` | `/api/trips/<id>` | 取得單一旅程 |
+| `PUT` | `/api/trips/<id>` | 更新旅程（行程變更後呼叫）|
+| `DELETE` | `/api/trips/<id>` | 刪除旅程 |
+| `POST` | `/api/trips/sync` | 批次 upsert（前端首次啟動同步本地快取）|
+
+每個 itinerary item 包含 `address` 欄位：
+
+```json
+{
+  "id": "item-uuid",
+  "time": "09:00",
+  "title": "淺草寺",
+  "location": "Asakusa",
+  "address": "2 Chome-3-1 Asakusa, Taito City, Tokyo, Japan",
+  "category": "attraction",
+  "stayTime": 2,
+  "cost": 0
+}
+```
 
 ---
 
@@ -391,9 +427,14 @@ GPT 自動呼叫工具：
 
 ## 🗄️ MongoDB Collections
 
+### `users`
+```json
+{ "uid": "firebase-uid", "email": "...", "displayName": "...", "createdAt": "ISO8601" }
+```
+
 ### `conversations`
 ```json
-{ "_id": "UUID", "userUid": "firebase-uid", "createdAt": "ISO8601" }
+{ "_id": "UUID", "userId": "firebase-uid", "title": "...", "createdAt": "ISO8601" }
 ```
 
 ### `messages`
@@ -401,14 +442,14 @@ GPT 自動呼叫工具：
 {
   "_id": "UUID",
   "conversationId": "UUID",
-  "userUid": "firebase-uid",
-  "role": "user | assistant | tool",
+  "userId": "firebase-uid",
+  "role": "user | assistant",
   "content": "訊息內容",
   "createdAt": "ISO8601"
 }
 ```
 
-### `itineraries`
+### `itineraries`（AI 生成）
 ```json
 {
   "_id": "UUID",
@@ -422,8 +463,7 @@ GPT 自動呼叫工具：
         {
           "xid": "Q3530518",
           "name": "景點名稱",
-          "lat": 35.68,
-          "lon": 139.69,
+          "lat": 35.68, "lon": 139.69,
           "arrivalTime": "09:00",
           "stayDuration": 90,
           "ticketPrice": 0,
@@ -434,6 +474,39 @@ GPT 自動呼叫工具：
     }
   ],
   "budget": { "total": 60000, "currency": "TWD", "breakdown": {} },
+  "createdAt": "ISO8601",
+  "updatedAt": "ISO8601"
+}
+```
+
+### `trips`（使用者自建旅程）⭐ 新增
+```json
+{
+  "tripId": "UUID",
+  "userId": "firebase-uid",
+  "title": "日本東京",
+  "destination": "Tokyo, Japan",
+  "startDate": "2026-06-14",
+  "endDate": "2026-06-19",
+  "dates": "2026/06/14-2026/06/19, 共6天",
+  "itinerary": {
+    "Day 1": {
+      "date": "2026-06-14",
+      "weather": "☀",
+      "items": [
+        {
+          "id": "item-uuid",
+          "time": "09:00",
+          "title": "淺草寺",
+          "location": "Asakusa",
+          "address": "2 Chome-3-1 Asakusa, Taito City, Tokyo, Japan",
+          "category": "attraction",
+          "stayTime": 2,
+          "cost": 0
+        }
+      ]
+    }
+  },
   "createdAt": "ISO8601",
   "updatedAt": "ISO8601"
 }
@@ -453,7 +526,7 @@ GPT 自動呼叫工具：
 | 景點資料 | OpenTripMap | 免費，無需信用卡 |
 | 天氣資料 | Open-Meteo | 免費，無需 API Key |
 | 身份驗證 | Firebase Admin SDK | ID Token，TEST_MODE 跳過 |
-| 跨域 | Flask-CORS | 允許 localhost:5173 + production domain |
+| 跨域 | Flask-CORS | 允許 localhost:5173（Vite dev）+ localhost:3000（Docker frontend）+ production domain |
 
 ---
 
@@ -472,7 +545,15 @@ GPT 自動呼叫工具：
 | `GET /api/itinerary/<id>` | ✅ | MongoDB 查詢 |
 | `PUT /api/itinerary/<id>` | ✅ | MongoDB 更新 |
 | `DELETE /api/itinerary/<id>` | ✅ | MongoDB 刪除 |
-| `POST /api/fatigue/analyze` | ⏳ | 等隊友疲勞模組完成 |
+| `POST /api/fatigue/analyze` | ✅ | **SAFTE 正式版** |
+| `GET /api/flight/info` | ✅ | 需 `AVIATIONSTACK_API_KEY` |
+| `GET /api/currency/rates` | ✅ | Redis 快取 1hr |
+| `POST /api/currency/convert` | ✅ | 11 種幣別 |
+| `GET /api/trips` | ✅ | userId 隔離，MongoDB 查詢 |
+| `POST /api/trips` | ✅ | 建立旅程，保證 address 欄位存在 |
+| `PUT /api/trips/<id>` | ✅ | 更新旅程 |
+| `DELETE /api/trips/<id>` | ✅ | 刪除旅程 |
+| `POST /api/trips/sync` | ✅ | 批次 upsert |
 
 ---
 
@@ -482,4 +563,5 @@ GPT 自動呼叫工具：
 2. **gpt-5-mini 不支援 `temperature` 參數**：已移除，勿自行加回
 3. **Python 3.13 + OpenSSL 3.0**：Atlas 連線需要 certifi，已在 `database.py` 設定
 4. **macOS Port 5000**：被 AirPlay 佔用，固定使用 **5001**
-5. **疲勞模組**：`fatigue_service.py` 目前 `raise NotImplementedError`，`/api/fatigue/analyze` 會回 500；但 `/api/trip/plan` 有 placeholder 保護，不受影響
+5. **CORS 允許範圍**：`localhost:5173`（Vite dev）、`localhost:3000`（Docker frontend），正式環境需更新 `app.py` 的 origins 清單
+6. **Firebase 登入尚未實作**：目前所有請求以 `TEST_MODE` 送出，對應 `uid: test-user-001`；多用戶隔離需待前端加入 Firebase 登入流程後生效

@@ -180,7 +180,7 @@ import ShoppingListModal from '../components/shopping/ShoppingListModal.vue'
 import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.vue'
 import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
 import WeatherIcon from '../components/WeatherIcon.vue'
-import { getTripOrDefault } from '../data/travelStore.js'
+import { getTripOrDefault, saveTripChanges } from '../data/travelStore.js'
 
 const route = useRoute()
 const router = useRouter()
@@ -323,6 +323,7 @@ const handleUpdate = (updated) => {
       ...items[index],
       ...updated,
     }
+    saveTripChanges(trip.value.id || trip.value.tripId)
   }
 
   showEditModal.value = false
@@ -336,6 +337,7 @@ const addPackingItem = (item) => {
     category: item.category || '未分類',
   })
 
+  saveTripChanges(trip.value.id || trip.value.tripId)
   showPackingModal.value = false
 }
 

@@ -4,6 +4,9 @@ FROM python:3.11-slim
 # 設定工作目錄
 WORKDIR /app
 
+# 安裝 curl（healthcheck 使用）
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 # 先複製 requirements，利用 Docker layer cache
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
