@@ -22,6 +22,35 @@
             </template>
           </div>
         </template>
+
+        <!-- Task 2：結構化行程建議卡片，每張可單獨加入 -->
+        <div v-if="spots.length" class="mt-3 space-y-2">
+          <div
+            v-for="(spot, k) in spots"
+            :key="k"
+            class="flex items-start gap-2 rounded-2xl bg-[#F8FAFC] p-3"
+          >
+            <div class="flex-1">
+              <div class="flex items-baseline gap-2">
+                <span class="text-xs text-[#64748B]">{{ spot.arrivalTime }}</span>
+                <span class="font-semibold text-[#1E293B]">{{ spot.name }}</span>
+              </div>
+              <p v-if="spot.description" class="mt-1 text-xs text-gray-600">
+                {{ spot.description }}
+              </p>
+              <p v-if="spot.notes" class="mt-1 text-xs text-gray-500">
+                💡 {{ spot.notes }}
+              </p>
+            </div>
+            <!-- 加號：加入當前選取日的行程 -->
+            <button
+              @click="$emit('add-spot', spot)"
+              class="shrink-0 h-7 w-7 rounded-full text-white flex items-center justify-center"
+              style="background-color: #7E99BF;"
+              title="加入行程"
+            >+</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -34,7 +63,12 @@ const props = defineProps({
   message: Object,
 })
 
+defineEmits(['add-spot'])
+
 const isUser = computed(() => props.message.role === 'user')
+
+// 結構化行程 spots（沒有則為空陣列，不渲染卡片）
+const spots = computed(() => props.message.spots || [])
 
 /** 把文字按行分割，並解析每行中的 **粗體** 區段 */
 const formattedLines = computed(() => {

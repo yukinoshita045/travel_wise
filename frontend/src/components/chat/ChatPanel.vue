@@ -17,24 +17,27 @@
     <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
       <span class="font-semibold text-gray-700">AI 行程建議</span>
       <div class="flex items-center gap-1">
-        <button
-          @click="panelState = 'closed'"
-          class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 text-xs"
-          title="縮小"
-        >─</button>
+        <!-- 縮小：full → half -->
         <button
           @click="panelState = 'half'"
           class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 text-xs"
-          title="縮小視窗"
-        >❐</button>
+          title="縮小"
+        >─</button>
+        <!-- 中間格：full 顯示雙方框，點了還原回 half -->
         <button
-          @click="panelState = 'closed'"
+          @click="panelState = 'half'"
+          class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 text-xs"
+          title="還原"
+        >❐</button>
+        <!-- 關閉：收起並清空對話 -->
+        <button
+          @click="closePanel"
           class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 text-xs"
           title="關閉"
         >✕</button>
       </div>
     </div>
-    <ChatWindow :messages="messages" />
+    <ChatWindow :messages="messages" :isLoading="isLoading" @add-spot="(spot) => emit('add-spot', spot)" />
     <ChatInput
       :isLoading="isLoading"
       :showStyleOptions="messages.length === 0"
@@ -51,24 +54,27 @@
     <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
       <span class="font-semibold text-gray-700">AI 行程建議</span>
       <div class="flex items-center gap-1">
+        <!-- 縮小：half → closed（保留對話） -->
         <button
           @click="panelState = 'closed'"
           class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 text-xs"
           title="縮小"
         >─</button>
+        <!-- 中間格：half 顯示單方框，點了最大化到 full -->
         <button
           @click="panelState = 'full'"
           class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 text-xs"
           title="最大化"
-        >❐</button>
+        >□</button>
+        <!-- 關閉：收起並清空對話 -->
         <button
-          @click="panelState = 'closed'"
+          @click="closePanel"
           class="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 text-xs"
           title="關閉"
         >✕</button>
       </div>
     </div>
-    <ChatWindow :messages="messages" />
+    <ChatWindow :messages="messages" :isLoading="isLoading" @add-spot="(spot) => emit('add-spot', spot)" />
     <ChatInput
       :isLoading="isLoading"
       :showStyleOptions="messages.length === 0"
@@ -90,7 +96,7 @@ import { sendChat } from '../../api/trip'
 import { getTripOrDefault } from '../../data/travelStore'
 
 const props = defineProps({ tripId: String })
-const emit = defineEmits(['layout-change'])
+const emit = defineEmits(['layout-change', 'add-spot'])
 
 const panelState = ref('closed')
 const messages = ref([])
@@ -115,15 +121,23 @@ const getTripParams = () => {
   }
 }
 
-/** 把 AI 回傳的 reply 轉成人類可讀的訊息文字 */
-const formatReply = (reply) => {
-  if (!reply) return '收到你的需求，以下是建議...'
+// 關閉：收起面板並清空對話紀錄（與「縮小」區分）
+const closePanel = () => {
+  panelState.value = 'closed'
+  messages.value = []
+  conversationId.value = null
+}
 
-  // 行程 JSON 格式
+/** 把 AI 回傳的 reply 轉成 { text, spots }；text 供顯示，spots 供「加入行程」 */
+const formatReply = (reply) => {
+  if (!reply) return { text: '收到你的需求，以下是建議...', spots: [] }
+
+  // 行程 JSON 格式：保留結構化 spots
   if (reply.type === 'itinerary' && reply.content?.days) {
     const days = reply.content.days
     const title = reply.content.title || '行程建議'
     let text = `**${title}**\n\n`
+    const spots = []
     days.forEach((day) => {
       text += `📅 Day ${day.dayNumber}${day.theme ? `：${day.theme}` : ''}\n`
       ;(day.spots || []).forEach((spot) => {
@@ -131,16 +145,22 @@ const formatReply = (reply) => {
         if (spot.description) text += `     ${spot.description}\n`
         if (spot.notes) text += `     💡 ${spot.notes}\n`
         text += '\n'
+        spots.push({
+          arrivalTime: spot.arrivalTime,
+          name: spot.name,
+          description: spot.description || '',
+          notes: spot.notes || '',
+        })
       })
     })
-    return text
+    return { text, spots }
   }
 
-  // 純文字回覆
-  if (typeof reply.content === 'string') return reply.content
-  if (typeof reply === 'string') return reply
+  // 純文字回覆：沒有可加入的 spots
+  if (typeof reply.content === 'string') return { text: reply.content, spots: [] }
+  if (typeof reply === 'string') return { text: reply, spots: [] }
 
-  return '收到你的需求，以下是建議...'
+  return { text: '收到你的需求，以下是建議...', spots: [] }
 }
 
 watch(
@@ -155,6 +175,20 @@ watch(
 )
 
 const handleSend = async (content) => {
+  // ───────────────────────────────────────────────
+  // 【臨時測試用，OpenAI key 修好後請刪掉這整段】
+  // 用來在沒有 AI 回應時，驗證結構化卡片渲染與「加入行程」功能
+  messages.value.push({
+    role: 'assistant',
+    content: '**測試行程**',
+    spots: [
+      { arrivalTime: '09:00', name: '測試景點A', description: '說明A', notes: '提示A' },
+      { arrivalTime: '11:00', name: '測試景點B', description: '說明B', notes: '' },
+    ],
+  })
+  return
+  // ───────────────────────────────────────────────
+
   messages.value.push({ role: 'user', content })
   isLoading.value = true
 
@@ -170,7 +204,11 @@ const handleSend = async (content) => {
     if (data.conversationId) conversationId.value = data.conversationId
 
     const replyText = formatReply(data.reply)
-    messages.value.push({ role: 'assistant', content: replyText })
+    messages.value.push({
+      role: 'assistant',
+      content: replyText.text,
+      spots: replyText.spots,   // 結構化 spots，供 ChatBubble 渲染加號卡片
+    })
   } catch (err) {
     console.error('[ChatPanel] API error:', err)
     messages.value.push({ role: 'assistant', content: '⚠️ 發生錯誤，請稍後再試。' })

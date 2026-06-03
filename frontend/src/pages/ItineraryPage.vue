@@ -153,6 +153,22 @@ const goBack = () => {
 const handleChatLayoutChange = (layout) => {
   chatLayout.value = layout
 }
+
+// 接收 AI 聊天的「加入建議」：把 spot 轉成行程 item，加到當前選取日
+const handleAddSpot = (spot) => {
+  const newItem = {
+    id: uuidv4(),
+    time: spot.arrivalTime || '00:00',
+    title: spot.name || '',
+    location: '',
+    address: '',
+    stayTime: 0,
+    description: spot.description || '',
+    image: '',
+  }
+  tripData.value[selectedDay.value].items.push(newItem)
+  saveTripChanges(trip.value.id || trip.value.tripId)
+}
 </script>
 
 <template>
@@ -313,12 +329,6 @@ const handleChatLayoutChange = (layout) => {
       @close="showModal = false"
       @submit="handleSubmit"
     />
-<!-- 
-    <DetailItineraryModal
-      :item="selectedItinerary"
-      @close="selectedItinerary = null"
-      @edit="openEditModal"
-    /> -->
 
     <DetailItineraryModal
       :item="selectedItinerary"
@@ -338,6 +348,7 @@ const handleChatLayoutChange = (layout) => {
     <ChatPanel
       :trip-id="String(route.params.id)"
       @layout-change="handleChatLayoutChange"
+      @add-spot="handleAddSpot"
     />
 
   </div>
