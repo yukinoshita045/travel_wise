@@ -50,7 +50,8 @@ def get_airport_details(iata_code: str) -> dict:
 
 def fetch_flight_info(flight_input: str, target_date: str) -> dict:
     """呼叫 AeroDataBox API 獲取未來航班精準資訊"""
-    rapidapi_key = os.getenv("RAPIDAPI_KEY")
+    # 主要讀 RAPIDAPI_KEY；相容舊變數名 AVIATIONSTACK_API_KEY
+    rapidapi_key = os.getenv("RAPIDAPI_KEY") or os.getenv("AVIATIONSTACK_API_KEY")
     if not rapidapi_key:
         raise ValueError("系統設定中缺少 RAPIDAPI_KEY，請檢查 .env 檔案")
 

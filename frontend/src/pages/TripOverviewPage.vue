@@ -168,6 +168,18 @@
       @submit="handleUpdate"
     />
 
+    <BudgetModal
+      :show="showBudgetModal"
+      :trip="trip"
+      @close="showBudgetModal = false"
+    />
+
+    <CurrencyModal
+      :show="showCurrencyModal"
+      :trip="trip"
+      @close="showCurrencyModal = false"
+    />
+
   </div>
 </template>
 
@@ -180,17 +192,23 @@ import ShoppingListModal from '../components/shopping/ShoppingListModal.vue'
 import DetailItineraryModal from '../components/itinerary/DetailItineraryModal.vue'
 import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
 import WeatherIcon from '../components/WeatherIcon.vue'
+import BudgetModal from '../components/BudgetModal.vue'
+import CurrencyModal from '../components/CurrencyModal.vue'
 import { getTripOrDefault, saveTripChanges, refreshTripLiveData } from '../data/travelStore.js'
 
 const route = useRoute()
 const router = useRouter()
 const trip = computed(() => getTripOrDefault(route.params.id))
 
+const showBudgetModal = ref(false)
+const showCurrencyModal = ref(false)
+
 onMounted(() => {
   const id = route.params.id || trip.value?.id
   if (id) refreshTripLiveData(id)
 })
 const showShoppingModal = ref(false)
+const showPackingModal = ref(false)
 const selectedItinerary = ref(null)
 const selectedItineraryDate = ref('')
 const selectedItineraryDay = ref('')
@@ -266,13 +284,30 @@ const summaryCards = computed(() => [
   {
     title: '即時匯率',
     heading: trip.value.currencyRate,
-    texts: [trip.value.currencyUpdatedAt]
+    texts: [trip.value.currencyUpdatedAt || '點此換算金額'],
+    action: 'openCurrencyModal'
+  },
+  {
+    title: '預算試算',
+    heading: trip.value.budget ? `幣別 ${trip.value.budget}` : '預算分配',
+    texts: ['點此估算住宿/餐費/交通'],
+    action: 'openBudgetModal'
   }
 ])
 
 const handleSummaryCardClick = (card) => {
   if (card.action === 'openShoppingModal') {
     showShoppingModal.value = true
+    return
+  }
+
+  if (card.action === 'openBudgetModal') {
+    showBudgetModal.value = true
+    return
+  }
+
+  if (card.action === 'openCurrencyModal') {
+    showCurrencyModal.value = true
     return
   }
 

@@ -17,8 +17,18 @@ from models.conversation import (
 from services.places_service import search_spots, get_spot_detail
 
 logger = logging.getLogger(__name__)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 MODEL  = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+# 延遲初始化 OpenAI client：避免 import 時就要求 OPENAI_API_KEY，
+# 讓未設 key 的環境（如測試、不需 AI 的端點）仍能正常 import / 啟動。
+_client = None
+
+
+def _get_client() -> OpenAI:
+    global _client
+    if _client is None:
+        _client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    return _client
 
 # ── System Prompt ─────────────────────────────────────────
 SYSTEM_PROMPT = """你是 TravelWise 的 AI 旅遊顧問，專門幫助使用者規劃最適合的旅遊行程。
@@ -304,7 +314,7 @@ def handle_chat_message(
 
     # ── GPT Function Calling 迴圈（最多 10 輪）──
     for _ in range(10):
-        response = client.chat.completions.create(
+        response = _get_client().chat.completions.create(
             model=MODEL,
             messages=messages,
             tools=TOOLS,

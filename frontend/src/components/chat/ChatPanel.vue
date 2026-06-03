@@ -175,20 +175,6 @@ watch(
 )
 
 const handleSend = async (content) => {
-  // ───────────────────────────────────────────────
-  // 【臨時測試用，OpenAI key 修好後請刪掉這整段】
-  // 用來在沒有 AI 回應時，驗證結構化卡片渲染與「加入行程」功能
-  messages.value.push({
-    role: 'assistant',
-    content: '**測試行程**',
-    spots: [
-      { arrivalTime: '09:00', name: '測試景點A', description: '說明A', notes: '提示A' },
-      { arrivalTime: '11:00', name: '測試景點B', description: '說明B', notes: '' },
-    ],
-  })
-  return
-  // ───────────────────────────────────────────────
-
   messages.value.push({ role: 'user', content })
   isLoading.value = true
 

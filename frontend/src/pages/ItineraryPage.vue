@@ -8,6 +8,7 @@ import EditItineraryModal from '../components/itinerary/EditItineraryModal.vue'
 import Navbar from '../components/Navbar.vue'
 import WeatherIcon from '../components/WeatherIcon.vue'
 import ChatPanel from '../components/chat/ChatPanel.vue'
+import PlacesModal from '../components/PlacesModal.vue'
 import { getTripOrDefault, saveTripChanges } from '../data/travelStore.js'
 
 const route = useRoute()
@@ -24,6 +25,7 @@ const getInitialSelectedDay = () => {
 const selectedDay = ref(getInitialSelectedDay())
 const openMenu = ref(null)
 const showModal = ref(false)
+const showPlacesModal = ref(false)
 const showEditModal = ref(false)
 const selectedItinerary = ref(null)
 const chatLayout = ref({ isOpen: false, width: 0 })
@@ -228,12 +230,21 @@ const handleAddSpot = (spot) => {
           </p>
         </div>
 
-        <button
-          @click="handleAdd"
-          class="h-10 w-10 rounded-full bg-[#94A3B8] text-white"
-        >
-          +
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            @click="showPlacesModal = true"
+            class="flex h-10 items-center gap-1 rounded-full bg-white px-4 text-sm font-medium text-[#64748B] shadow-sm transition hover:bg-slate-50"
+            title="搜尋景點加入行程"
+          >
+            🔍 景點搜尋
+          </button>
+          <button
+            @click="handleAdd"
+            class="h-10 w-10 rounded-full bg-[#94A3B8] text-white"
+          >
+            +
+          </button>
+        </div>
       </div>
 
       <div class="relative flex-1 overflow-y-auto pr-2 space-y-8">
@@ -343,6 +354,13 @@ const handleAddSpot = (spot) => {
       :model-value="editForm"
       @close="showEditModal = false"
       @submit="handleUpdate"
+    />
+
+    <PlacesModal
+      :show="showPlacesModal"
+      :trip="trip"
+      @close="showPlacesModal = false"
+      @add="handleAddSpot"
     />
 
     <ChatPanel

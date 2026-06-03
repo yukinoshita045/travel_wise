@@ -322,6 +322,29 @@ export const resetTravelData = () => {
   persistTravelData()
 }
 
+// ── 航班：新增 / 移除單筆航班，並重新計算疲勞 ─────────────────
+export const addFlightToTrip = async (tripId, flightData) => {
+  const trip = getTripById(tripId)
+  if (!trip || !flightData) return
+  if (!Array.isArray(trip.flights)) trip.flights = []
+  trip.flights.push(flightData)
+  persistTravelData()
+  await saveTripChanges(tripId)
+  // 航班變動會影響轉機次數與時差，重新計算疲勞
+  refreshFatigueForTrip(tripId)
+  return trip.flights
+}
+
+export const removeFlightFromTrip = async (tripId, index) => {
+  const trip = getTripById(tripId)
+  if (!trip || !Array.isArray(trip.flights)) return
+  trip.flights.splice(index, 1)
+  persistTravelData()
+  await saveTripChanges(tripId)
+  refreshFatigueForTrip(tripId)
+  return trip.flights
+}
+
 // ── 匯率：查詢並更新旅程的 currencyRate / currencyUpdatedAt ──
 export const refreshCurrencyForTrip = async (tripId) => {
   const trip = getTripById(tripId)
@@ -358,8 +381,8 @@ const conditionToEmoji = (condition = '') => {
   return '🌤'
 }
 
-// 中文目的地 → 英文城市名（給 Open-Meteo geocoding 使用）
-const toEnglishDestination = (destination = '') => {
+// 中文目的地 → 英文城市名（給 Open-Meteo / OpenTripMap geocoding 使用）
+export const toEnglishDestination = (destination = '') => {
   const map = {
     '東京': 'Tokyo', '大阪': 'Osaka', '京都': 'Kyoto', '札幌': 'Sapporo',
     '福岡': 'Fukuoka', '名古屋': 'Nagoya', '沖繩': 'Okinawa', '日本': 'Japan',
@@ -429,7 +452,7 @@ export const refreshFatigueForTrip = async (tripId) => {
     }
     const res = await analyzeFatigue(payload)
     const data = res.data
-    if (!data?.baseScore == null) return
+    if (data?.baseScore == null) return
 
     trip.fatigue = `${data.baseScore}%`
     trip._fatigueDetail = data // 保存完整 detail 供 FlightPage 使用
