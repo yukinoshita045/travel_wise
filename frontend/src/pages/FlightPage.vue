@@ -32,6 +32,16 @@ const formatLocation = (location) => {
   return `${location.city}, ${location.country}`;
 };
 
+const formatFlightDate = (date) => {
+  if (!date) return "";
+
+  return new Date(`${date}T00:00:00`).toLocaleDateString("zh-TW", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+};
+
 const getTimezoneLabel = (timezone) => {
   return timezone.replace("Asia/", "");
 };
@@ -128,6 +138,10 @@ const goBack = () => {
                 {{ flightData.departure.time }}
               </p>
 
+              <p v-if="flightData.departure.date" class="text-sm text-[#DBE1FF]">
+                {{ formatFlightDate(flightData.departure.date) }}
+              </p>
+
               <p class="text-sm text-[#DBE1FF]">
                 {{ flightData.departure.timezone }}
               </p>
@@ -152,6 +166,10 @@ const goBack = () => {
 
               <p class="text-lg text-white">
                 {{ flightData.arrival.time }}
+              </p>
+
+              <p v-if="flightData.arrival.date" class="text-sm text-[#DBE1FF]">
+                {{ formatFlightDate(flightData.arrival.date) }}
               </p>
 
               <p class="text-sm text-[#DBE1FF]">

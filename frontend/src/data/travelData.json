@@ -26,13 +26,15 @@
             "city": "Taipei",
             "country": "Taiwan",
             "timezone": "Asia/Taipei",
-            "time": "14:35"
+            "time": "14:35",
+            "date": "2026-06-14"
           },
           "arrival": {
             "city": "Tokyo",
             "country": "Japan",
             "timezone": "Asia/Tokyo",
-            "time": "19:00"
+            "time": "19:00",
+            "date": "2026-06-14"
           },
           "flightDurationHours": 3.42
         },
@@ -43,13 +45,15 @@
             "city": "Taipei",
             "country": "Taiwan",
             "timezone": "Asia/Taipei",
-            "time": "15:10"
+            "time": "15:10",
+            "date": "2026-06-14"
           },
           "arrival": {
             "city": "Tokyo",
             "country": "Japan",
             "timezone": "Asia/Tokyo",
-            "time": "19:25"
+            "time": "19:25",
+            "date": "2026-06-14"
           },
           "flightDurationHours": 3.25
         }
@@ -361,13 +365,15 @@
             "city": "Taipei",
             "country": "Taiwan",
             "timezone": "Asia/Taipei",
-            "time": "13:25"
+            "time": "13:25",
+            "date": "2026-01-05"
           },
           "arrival": {
             "city": "Busan",
             "country": "South Korea",
             "timezone": "Asia/Seoul",
-            "time": "16:45"
+            "time": "16:45",
+            "date": "2026-01-05"
           },
           "flightDurationHours": 2.33
         }
