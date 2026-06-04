@@ -26,13 +26,17 @@
             "city": "Taipei",
             "country": "Taiwan",
             "timezone": "Asia/Taipei",
-            "time": "14:35"
+            "time": "14:35",
+            "code": "TPE",
+            "airportName": "Taiwan Taoyuan International Airport"
           },
           "arrival": {
             "city": "Tokyo",
             "country": "Japan",
             "timezone": "Asia/Tokyo",
-            "time": "19:00"
+            "time": "19:00",
+            "code": "TYO",
+            "airportName": "Tokyo Area Airports"
           },
           "flightDurationHours": 3.42
         },
@@ -43,13 +47,17 @@
             "city": "Taipei",
             "country": "Taiwan",
             "timezone": "Asia/Taipei",
-            "time": "15:10"
+            "time": "15:10",
+            "code": "TPE",
+            "airportName": "Taiwan Taoyuan International Airport"
           },
           "arrival": {
             "city": "Tokyo",
             "country": "Japan",
             "timezone": "Asia/Tokyo",
-            "time": "19:25"
+            "time": "19:25",
+            "code": "TYO",
+            "airportName": "Tokyo Area Airports"
           },
           "flightDurationHours": 3.25
         }
@@ -361,13 +369,17 @@
             "city": "Taipei",
             "country": "Taiwan",
             "timezone": "Asia/Taipei",
-            "time": "13:25"
+            "time": "13:25",
+            "code": "TPE",
+            "airportName": "Taiwan Taoyuan International Airport"
           },
           "arrival": {
             "city": "Busan",
             "country": "South Korea",
             "timezone": "Asia/Seoul",
-            "time": "16:45"
+            "time": "16:45",
+            "code": "PUS",
+            "airportName": "Gimhae International Airport"
           },
           "flightDurationHours": 2.33
         }

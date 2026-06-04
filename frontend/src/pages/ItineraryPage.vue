@@ -69,6 +69,7 @@ const form = ref({
 
 const editForm = ref({
   id: '',
+  day: '',
   time: '',
   title: '',
   location: '',
@@ -81,6 +82,7 @@ const editForm = ref({
 const openEditModal = (item) => {
   editForm.value = {
     id: item.id,
+    day: selectedDay.value,
     time: item.time,
     title: item.title,
     location: item.location,
@@ -95,15 +97,28 @@ const openEditModal = (item) => {
 }
 
 const handleUpdate = (updated) => {
-  const items = tripData.value[selectedDay.value].items
+  const sourceDay = editForm.value.day || selectedDay.value
+  const targetDay = updated.day || sourceDay
+  const sourceItems = tripData.value[sourceDay]?.items || []
+  const targetItems = tripData.value[targetDay]?.items || sourceItems
 
-  const index = items.findIndex(i => i.id === updated.id)
+  const index = sourceItems.findIndex(i => i.id === updated.id)
 
   if (index !== -1) {
-    items[index] = {
-      ...items[index],
+    const updatedItem = {
+      ...sourceItems[index],
       ...updated,
     }
+    delete updatedItem.day
+
+    if (targetDay === sourceDay) {
+      sourceItems[index] = updatedItem
+    } else {
+      sourceItems.splice(index, 1)
+      targetItems.push(updatedItem)
+      selectedDay.value = targetDay
+    }
+
     saveTripChanges(trip.value.id || trip.value.tripId)
   }
 
@@ -155,6 +170,17 @@ const goBack = () => {
 const handleChatLayoutChange = (layout) => {
   chatLayout.value = layout
 }
+
+const dayOptions = computed(() =>
+  Object.entries(tripData.value).map(([day, data]) => ({
+    value: day,
+    label: `${day} ・ ${data.date}`,
+  }))
+)
+
+const selectedDayItems = computed(() =>
+  [...(tripData.value[selectedDay.value]?.items || [])].sort((a, b) => (a.time || '').localeCompare(b.time || ''))
+)
 
 // 接收 AI 聊天的「加入建議」：把 spot 轉成行程 item，加到當前選取日
 const handleAddSpot = (spot) => {
@@ -240,9 +266,13 @@ const handleAddSpot = (spot) => {
           </button>
           <button
             @click="handleAdd"
-            class="h-10 w-10 rounded-full bg-[#94A3B8] text-white"
+            class="flex h-10 w-10 items-center justify-center rounded-full bg-[#94A3B8] text-white"
+            aria-label="新增行程"
           >
-            +
+            <span class="relative block h-5 w-5">
+              <span class="absolute left-1/2 top-0 h-full w-[3px] -translate-x-1/2 rounded-full bg-white"></span>
+              <span class="absolute left-0 top-1/2 h-[3px] w-full -translate-y-1/2 rounded-full bg-white"></span>
+            </span>
           </button>
         </div>
       </div>
@@ -250,26 +280,28 @@ const handleAddSpot = (spot) => {
       <div class="relative flex-1 overflow-y-auto pr-2 space-y-8">
 
         <div
-          v-for="(item, index) in [...tripData[selectedDay].items].sort((a, b) => (a.time || '').localeCompare(b.time || ''))"
+          v-for="(item, index) in selectedDayItems"
           :key="item.id"
-          class="flex gap-6"
+          class="grid grid-cols-[18px_minmax(0,1fr)] gap-4"
         >
 
-          <div class="flex flex-col items-center">
-            <p class="text-sm text-[#64748B]">{{ item.time }}</p>
-            <div class="my-2 h-4 w-4 rounded-full bg-[#94A3B8]" />
+          <div class="relative flex justify-center">
             <div
-              v-if="index !== tripData[selectedDay].items.length - 1"
-              class="w-[2px] flex-1 bg-[#CBD5E1]"
+              v-if="index !== selectedDayItems.length - 1"
+              class="absolute top-[14px] bottom-[-32px] w-[2px] bg-[#CBD5E1]"
             />
+            <div class="relative z-10 mt-[2px] h-4 w-4 rounded-full bg-[#94A3B8]" />
           </div>
 
           <div class="relative flex flex-1 flex-col cursor-pointer"
                @click="selectedItinerary = item">
+            <p class="mb-2 truncate text-sm font-medium tabular-nums text-[#64748B]" :title="item.time">
+              {{ item.time }}
+            </p>
 
-            <div class="h-[180px] rounded-3xl bg-[#F8FAFC] p-4 shadow-sm">
+            <div class="h-[180px] min-w-0 rounded-3xl bg-[#F8FAFC] p-4 shadow-sm">
 
-              <div class="flex h-full gap-4">
+              <div class="flex h-full min-w-0 gap-4">
 
                 <div class="aspect-square h-full shrink-0 overflow-hidden rounded-2xl bg-slate-200">
                   <img
@@ -279,15 +311,15 @@ const handleAddSpot = (spot) => {
                   />
                 </div>
 
-                <div class="flex flex-1 flex-col">
+                <div class="flex min-w-0 flex-1 flex-col">
 
-                  <div class="flex justify-between">
+                  <div class="flex min-w-0 justify-between gap-3">
 
-                    <div>
-                      <h3 class="font-semibold text-[#1E293B]">
+                    <div class="min-w-0 flex-1">
+                      <h3 class="truncate font-semibold text-[#1E293B]" :title="item.title">
                         {{ item.title }}
                       </h3>
-                      <p class="text-sm text-gray-500">
+                      <p class="truncate text-sm text-gray-500" :title="item.location">
                         {{ item.location }}
                       </p>
                     </div>
@@ -314,7 +346,7 @@ const handleAddSpot = (spot) => {
 
                   </div>
 
-                  <p class="mt-3 text-sm text-gray-600">
+                  <p class="mt-3 line-clamp-3 text-sm text-gray-600">
                     {{ item.description }}
                   </p>
 
@@ -352,6 +384,7 @@ const handleAddSpot = (spot) => {
     <EditItineraryModal
       :show="showEditModal"
       :model-value="editForm"
+      :day-options="dayOptions"
       @close="showEditModal = false"
       @submit="handleUpdate"
     />

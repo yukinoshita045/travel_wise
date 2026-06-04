@@ -4,6 +4,10 @@ import { ref, watch } from 'vue'
 const props = defineProps({
   show: Boolean,
   modelValue: Object,
+  dayOptions: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 const emit = defineEmits([
@@ -12,6 +16,7 @@ const emit = defineEmits([
 ])
 
 const form = ref({
+  day: '',
   time: '',
   title: '',
   location: '',
@@ -23,6 +28,8 @@ const form = ref({
 
 const inputClass =
   'w-full rounded-xl border p-2 outline-none focus:outline-none focus:ring-0 focus:shadow-none focus:border-[#94A3B8]'
+const selectClass =
+  `${inputClass} h-10 appearance-none bg-white px-2.5 pr-9 text-[#1E293B]`
 
 watch(
   () => props.show,
@@ -30,6 +37,7 @@ watch(
     if (val && props.modelValue) {
       form.value = {
         ...props.modelValue,
+        day: props.modelValue.day || props.dayOptions[0]?.value || '',
         time: props.modelValue.time || '',
         stayTime: Number(props.modelValue.stayTime || 0),
       }
@@ -56,6 +64,7 @@ const handleUpdate = () => {
 
   emit('submit', {
     ...form.value,
+    day: form.value.day || props.modelValue?.day || props.dayOptions[0]?.value || '',
     time: timeRegex.test(form.value.time) ? form.value.time : '00:00',
     stayTime: Number(form.value.stayTime || 0),
   })
@@ -92,25 +101,47 @@ const handleClose = () => {
         </h2>
 
         <div class="flex-1 space-y-4 overflow-y-auto">
-          <!-- TIME -->
-          <div>
-            <p class="mb-1 text-sm text-gray-400">
-              開始時間
-            </p>
+          <!-- DAY / TIME -->
+          <div class="grid grid-cols-[minmax(0,1.25fr)_minmax(120px,0.75fr)] gap-3">
+            <div>
+              <p class="mb-1 text-sm text-gray-400">
+                天數 / 日期
+              </p>
 
-            <input
-              v-model="form.time"
-              type="text"
-              inputmode="numeric"
-              maxlength="5"
-              placeholder="09:00"
-              :class="inputClass"
-              @input="handleTimeInput"
-            />
+              <div class="relative">
+                <select
+                  v-model="form.day"
+                  :class="selectClass"
+                >
+                  <option
+                    v-for="option in dayOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    {{ option.label }}
+                  </option>
+                </select>
+                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                  ▼
+                </span>
+              </div>
+            </div>
 
-            <!-- <p class="mt-1 text-xs text-gray-400">
-              請輸入 4 位數，例如 0900
-            </p> -->
+            <div>
+              <p class="mb-1 text-sm text-gray-400">
+                開始時間
+              </p>
+
+              <input
+                v-model="form.time"
+                type="text"
+                inputmode="numeric"
+                maxlength="5"
+                placeholder="09:00"
+                :class="inputClass"
+                @input="handleTimeInput"
+              />
+            </div>
           </div>
 
           <!-- TITLE -->

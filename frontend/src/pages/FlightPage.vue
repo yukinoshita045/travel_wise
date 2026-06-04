@@ -2,6 +2,8 @@
 import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
+  ChevronLeft,
+  ChevronRight,
   Clock,
   TicketsPlane,
   Bed,
@@ -13,6 +15,7 @@ import {
   refreshFatigueForTrip,
   addFlightToTrip,
   removeFlightFromTrip,
+  saveTripChanges,
 } from "../data/travelStore.js";
 import { fetchFlightInfo } from "../api/flight.js";
 
@@ -28,11 +31,38 @@ const showQueryModal = ref(false);
 const queryForm = ref({ flightNum: "", date: trip.value.startDate || "" });
 const querying = ref(false);
 const queryError = ref("");
+const editingFlightIndex = ref(null);
+const flightActionMenuOpen = ref(false);
+
+const getSegmentDate = (segment) => {
+  return segment?.date || normalizeDateTime(segment?.time).date || "";
+};
 
 const openQueryModal = () => {
+  editingFlightIndex.value = null;
   queryForm.value = { flightNum: "", date: trip.value.startDate || "" };
   queryError.value = "";
   showQueryModal.value = true;
+};
+
+const openEditFlightModal = () => {
+  if (!flightData.value) return;
+
+  editingFlightIndex.value = index.value;
+  flightActionMenuOpen.value = false;
+  queryForm.value = {
+    flightNum: flightData.value.flightNumber || "",
+    date: getSegmentDate(flightData.value.departure) || trip.value.startDate || "",
+  };
+  queryError.value = "";
+  showQueryModal.value = true;
+};
+
+const closeQueryModal = () => {
+  if (querying.value) return;
+
+  showQueryModal.value = false;
+  editingFlightIndex.value = null;
 };
 
 const submitFlightQuery = async () => {
@@ -46,9 +76,18 @@ const submitFlightQuery = async () => {
   querying.value = true;
   try {
     const res = await fetchFlightInfo(flightNum, date);
-    await addFlightToTrip(trip.value.id || trip.value.tripId, res.data);
-    index.value = flights.value.length - 1; // 跳到新加入的航班
+    const tripId = trip.value.id || trip.value.tripId;
+    if (editingFlightIndex.value !== null) {
+      trip.value.flights.splice(editingFlightIndex.value, 1, res.data);
+      await saveTripChanges(tripId);
+      await refreshFatigueForTrip(tripId);
+      index.value = editingFlightIndex.value;
+    } else {
+      await addFlightToTrip(tripId, res.data);
+      index.value = flights.value.length - 1; // 跳到新加入的航班
+    }
     showQueryModal.value = false;
+    editingFlightIndex.value = null;
   } catch (err) {
     queryError.value =
       err?.response?.data?.error || "查詢失敗，請確認航班編號與日期是否正確";
@@ -59,6 +98,7 @@ const submitFlightQuery = async () => {
 
 const deleteCurrentFlight = async () => {
   if (!flights.value.length) return;
+  flightActionMenuOpen.value = false;
   if (!window.confirm("確定要刪除這筆航班嗎？")) return;
   const removeAt = index.value;
   await removeFlightFromTrip(trip.value.id || trip.value.tripId, removeAt);
@@ -66,6 +106,9 @@ const deleteCurrentFlight = async () => {
 };
 
 const flightData = computed(() => flights.value[index.value] || flights.value[0]);
+const hasMultipleFlights = computed(() => flights.value.length > 1);
+const hasPreviousFlight = computed(() => index.value > 0);
+const hasNextFlight = computed(() => index.value < flights.value.length - 1);
 
 // ── 疲勞詳細資料（從 _fatigueDetail 取，沒有就用預設值）────────
 const fatigueDetail = computed(() => trip.value._fatigueDetail || null)
@@ -94,7 +137,40 @@ const formatDuration = (hours) => {
 };
 
 const formatLocation = (location) => {
+  if (location?.code) return location.code;
   return `${location.city}, ${location.country}`;
+};
+
+const formatLocationTitle = (location) => {
+  const details = [location?.city, location?.country].filter(Boolean).join(", ");
+  return location?.code && details ? `${location.code} · ${details}` : formatLocation(location);
+};
+
+const padTime = (value) => String(value).padStart(2, "0");
+
+const normalizeDateTime = (value) => {
+  if (!value) return { date: "", time: "" };
+
+  const text = String(value).trim();
+  const dateMatch = text.match(/^(\d{4}-\d{2}-\d{2})/);
+  const timeMatch = text.match(/(?:T|\s)(\d{2}):(\d{2})/) || text.match(/^(\d{1,2}):(\d{2})/);
+
+  return {
+    date: dateMatch?.[1] || "",
+    time: timeMatch ? `${padTime(timeMatch[1])}:${timeMatch[2]}` : text
+  };
+};
+
+const formatFlightDate = (segment) => {
+  const date = segment?.date || normalizeDateTime(segment?.time).date;
+  if (!date) return "";
+
+  return date.replace(/-/g, "/");
+};
+
+const formatFlightTime = (segment) => {
+  const time = normalizeDateTime(segment?.time).time;
+  return time || "-";
 };
 
 const getTimezoneLabel = (timezone) => {
@@ -108,14 +184,13 @@ const toggleSleepMode = () => {
 };
 
 const nextFlight = () => {
-  if (!flights.value.length) return;
-  index.value = (index.value + 1) % flights.value.length;
+  if (!hasNextFlight.value) return;
+  index.value += 1;
 };
 
 const prevFlight = () => {
-  if (!flights.value.length) return;
-  index.value =
-    (index.value - 1 + flights.value.length) % flights.value.length;
+  if (!hasPreviousFlight.value) return;
+  index.value -= 1;
 };
 
 const goBack = () => {
@@ -160,9 +235,14 @@ onMounted(() => {
       <!-- Left Arrow -->
       <button
         @click="prevFlight"
-        class="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow transition hover:scale-105"
+        :class="[
+          'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow transition hover:scale-105',
+          hasPreviousFlight ? 'visible pointer-events-auto' : 'invisible pointer-events-none'
+        ]"
+        :aria-hidden="!hasPreviousFlight"
+        :tabindex="hasPreviousFlight ? 0 : -1"
       >
-        ←
+        <ChevronLeft class="h-7 w-7 text-[#64748B]" :stroke-width="3" />
       </button>
 
       <!-- Flight Card -->
@@ -170,77 +250,112 @@ onMounted(() => {
         class="relative flex h-[450px] w-[50%] flex-col overflow-hidden rounded-3xl bg-[#7E99BF] shadow-xl"
       >
 
-        <!-- 刪除目前航班 -->
+        <!-- 航班操作選單 -->
         <button
-          @click="deleteCurrentFlight"
-          class="absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30"
-          title="刪除此航班"
+          type="button"
+          @click.stop="flightActionMenuOpen = !flightActionMenuOpen"
+          class="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition hover:bg-white/30"
+          title="航班操作"
         >
-          🗑
+          <span class="text-xl leading-none">⋯</span>
         </button>
+        <div
+          v-if="flightActionMenuOpen"
+          @click.stop
+          class="absolute right-4 top-14 z-30 w-28 overflow-hidden rounded-xl border border-white/20 bg-white py-1 text-sm font-medium shadow-lg"
+        >
+          <button
+            type="button"
+            @click="openEditFlightModal"
+            class="block w-full px-4 py-2 text-left text-slate-700 transition-colors hover:bg-slate-50"
+          >
+            編輯
+          </button>
+          <button
+            type="button"
+            @click="deleteCurrentFlight"
+            class="block w-full px-4 py-2 text-left text-red-600 transition-colors hover:bg-red-50"
+          >
+            刪除
+          </button>
+        </div>
 
         <!-- Blue Area -->
-        <div class="flex-1 p-10">
+        <div class="grid flex-1 grid-rows-[auto_1fr] p-9">
 
           <!-- Top -->
           <div>
-            <p class="text-xs tracking-widest text-[#DBE1FF]">
+            <p class="text-[11px] font-semibold tracking-[0.18em] text-[#DBE1FF]">
               FLIGHT NUMBER
             </p>
 
-            <h2 class="text-3xl font-bold text-white">
+            <h2 class="mt-1 text-3xl font-bold leading-tight text-white">
               {{ flightData.flightNumber }}
             </h2>
 
-            <p class="text-sm text-[#DBE1FF]">
+            <p class="mt-0.5 text-sm font-medium text-[#DBE1FF]">
               {{ flightData.airline }}
             </p>
           </div>
 
           <!-- Route -->
-          <div class="mt-10 flex items-center justify-between">
+          <div class="grid grid-cols-[minmax(0,1fr)_64px_minmax(0,1fr)] items-center gap-5 self-center">
 
             <!-- Departure -->
-            <div class="text-center">
-              <p class="text-sm text-[#DBE1FF]">
+            <div class="grid min-h-[154px] grid-rows-[22px_58px_32px_22px_20px] text-center">
+              <p class="text-sm font-medium text-[#DBE1FF]">
                 起飛
               </p>
 
-              <p class="mt-1 w-[200px] text-xl font-semibold text-white">
+              <p
+                class="flex items-center justify-center text-4xl font-black leading-none text-white"
+                :title="formatLocationTitle(flightData.departure)"
+              >
                 {{ formatLocation(flightData.departure) }}
               </p>
 
-              <p class="text-lg text-white">
-                {{ flightData.departure.time }}
+              <p class="text-xl font-semibold leading-none text-white">
+                {{ formatFlightTime(flightData.departure) }}
               </p>
 
-              <p class="text-sm text-[#DBE1FF]">
+              <p v-if="formatFlightDate(flightData.departure)" class="text-sm font-medium text-[#DBE1FF]">
+                {{ formatFlightDate(flightData.departure) }}
+              </p>
+
+              <p class="truncate text-xs font-medium text-[#DBE1FF]" :title="flightData.departure.timezone">
                 {{ flightData.departure.timezone }}
               </p>
             </div>
 
             <!-- Plane -->
-            <div class="flex items-center justify-center">
-              <div class="rounded-full bg-white/20 p-3">
+            <div class="flex min-h-[154px] items-center justify-center">
+              <div class="flex h-12 w-12 items-center justify-center rounded-full bg-white/20">
                 <Plane class="h-6 w-6 rotate-45 text-white" />
               </div>
             </div>
 
             <!-- Arrival -->
-            <div class="text-center">
-              <p class="text-sm text-[#DBE1FF]">
+            <div class="grid min-h-[154px] grid-rows-[22px_58px_32px_22px_20px] text-center">
+              <p class="text-sm font-medium text-[#DBE1FF]">
                 抵達
               </p>
 
-              <p class="mt-1 w-[200px] text-xl font-semibold text-white">
+              <p
+                class="flex items-center justify-center text-4xl font-black leading-none text-white"
+                :title="formatLocationTitle(flightData.arrival)"
+              >
                 {{ formatLocation(flightData.arrival) }}
               </p>
 
-              <p class="text-lg text-white">
-                {{ flightData.arrival.time }}
+              <p class="text-xl font-semibold leading-none text-white">
+                {{ formatFlightTime(flightData.arrival) }}
               </p>
 
-              <p class="text-sm text-[#DBE1FF]">
+              <p v-if="formatFlightDate(flightData.arrival)" class="text-sm font-medium text-[#DBE1FF]">
+                {{ formatFlightDate(flightData.arrival) }}
+              </p>
+
+              <p class="truncate text-xs font-medium text-[#DBE1FF]" :title="flightData.arrival.timezone">
                 {{ flightData.arrival.timezone }}
               </p>
             </div>
@@ -369,9 +484,14 @@ onMounted(() => {
       <!-- Right Arrow -->
       <button
         @click="nextFlight"
-        class="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow transition hover:scale-105"
+        :class="[
+          'flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white shadow transition hover:scale-105',
+          hasNextFlight ? 'visible pointer-events-auto' : 'invisible pointer-events-none'
+        ]"
+        :aria-hidden="!hasNextFlight"
+        :tabindex="hasNextFlight ? 0 : -1"
       >
-        →
+        <ChevronRight class="h-7 w-7 text-[#64748B]" :stroke-width="3" />
       </button>
 
     </div>
@@ -390,15 +510,15 @@ onMounted(() => {
     <div
       v-if="showQueryModal"
       class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
-      @click.self="showQueryModal = false"
+      @click.self="closeQueryModal"
     >
       <div class="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-6 py-4">
           <h3 class="flex items-center gap-2 text-xl font-bold text-slate-800">
             <span class="inline-block h-6 w-2 rounded-full bg-[#7E99BF]"></span>
-            查詢航班
+            {{ editingFlightIndex !== null ? '編輯航班' : '查詢航班' }}
           </h3>
-          <button @click="showQueryModal = false" class="p-1 text-slate-400 hover:text-slate-700">✕</button>
+          <button @click="closeQueryModal" class="p-1 text-slate-400 hover:text-slate-700">✕</button>
         </div>
 
         <div class="space-y-4 p-6">
@@ -426,7 +546,7 @@ onMounted(() => {
 
         <div class="flex justify-end gap-3 border-t border-slate-100 bg-slate-50 px-6 py-4">
           <button
-            @click="showQueryModal = false"
+            @click="closeQueryModal"
             :disabled="querying"
             class="rounded-lg px-5 py-2 font-bold text-slate-500 transition-colors hover:bg-slate-200 disabled:opacity-50"
           >
@@ -441,7 +561,7 @@ onMounted(() => {
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            {{ querying ? '查詢中...' : '查詢並加入' }}
+            {{ querying ? '查詢中...' : (editingFlightIndex !== null ? '查詢並更新' : '查詢並加入') }}
           </button>
         </div>
       </div>

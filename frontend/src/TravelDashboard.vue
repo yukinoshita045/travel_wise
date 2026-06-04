@@ -60,6 +60,7 @@
                 :key="trip.id" 
                 :trip="trip" 
                 @edit="openEditModal" 
+                @delete="handleDeleteTrip"
                 @open="openTrip"
               />
 
@@ -89,7 +90,7 @@ import Navbar from './components/Navbar.vue';
 import TripCard from './components/TripCard.vue';
 import TripModal from './components/TripModal.vue'; // 👈 引入彈窗元件
 import Auth from './components/Auth.vue'; // 👈 引入登入元件
-import { addTrip, trips, updateTrip } from './data/travelStore.js';
+import { addTrip, deleteTrip, trips, updateTrip } from './data/travelStore.js';
 
 const router = useRouter();
 const savedUser = sessionStorage.getItem('travelwise:currentUser') || '';
@@ -146,6 +147,16 @@ const openEditModal = (trip) => {
 
 const openTrip = (trip) => {
   router.push(`/trip/${trip.id}`);
+};
+
+const handleDeleteTrip = async (trip) => {
+  const tripId = trip.id || trip.tripId;
+  if (!tripId) return;
+
+  const confirmed = window.confirm(`確定要刪除「${trip.title}」嗎？此操作無法復原。`);
+  if (!confirmed) return;
+
+  await deleteTrip(tripId);
 };
 
 const closeModal = () => { 

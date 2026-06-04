@@ -5,8 +5,33 @@
                 <span class="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> 即將到來！
             </span>
         </div>
-        <div @click.stop="$emit('edit', trip)" class="absolute top-5 right-4 w-8 h-8 rounded-full flex items-center justify-center text-slate-300 hover:text-slate-600 hover:bg-slate-100 transition-colors z-10 cursor-pointer">
+        <button
+            type="button"
+            @click.stop="toggleMenu"
+            class="absolute top-5 right-4 z-20 flex h-8 w-8 items-center justify-center rounded-full text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            aria-label="行程操作"
+        >
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM14 12a2 2 0 11-4 0 2 2 0 014 0zM22 12a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+        </button>
+        <div
+            v-if="isMenuOpen"
+            @click.stop
+            class="absolute right-4 top-14 z-30 w-28 overflow-hidden rounded-xl border border-slate-100 bg-white py-1 text-sm font-medium shadow-lg"
+        >
+            <button
+                type="button"
+                @click="handleEdit"
+                class="block w-full px-4 py-2 text-left text-slate-700 transition-colors hover:bg-slate-50"
+            >
+                編輯
+            </button>
+            <button
+                type="button"
+                @click="handleDelete"
+                class="block w-full px-4 py-2 text-left text-red-600 transition-colors hover:bg-red-50"
+            >
+                刪除
+            </button>
         </div>
         <div class="flex items-center mb-5 mt-1">
             <div class="w-9 h-9 rounded-full bg-[#64748B] text-white flex items-center justify-center">
@@ -32,8 +57,10 @@
 </template>
 
 <script setup>
+import { ref } from 'vue';
+
 // 定義這個元件需要接收哪些資料 (Props)
-defineProps({
+const props = defineProps({
     trip: {
         type: Object,
         required: true
@@ -41,5 +68,21 @@ defineProps({
 });
 
 // 定義這個元件可以向外發送哪些事件 (Emits)
-defineEmits(['edit', 'open']);
+const emit = defineEmits(['edit', 'delete', 'open']);
+
+const isMenuOpen = ref(false);
+
+const toggleMenu = () => {
+    isMenuOpen.value = !isMenuOpen.value;
+};
+
+const handleEdit = () => {
+    isMenuOpen.value = false;
+    emit('edit', props.trip);
+};
+
+const handleDelete = () => {
+    isMenuOpen.value = false;
+    emit('delete', props.trip);
+};
 </script>

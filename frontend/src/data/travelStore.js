@@ -15,6 +15,79 @@ const STORAGE_KEY = 'travelwise:data'
 
 export const cloneData = (value) => JSON.parse(JSON.stringify(value))
 
+// ── 日期工具函式 ────────────────────────────────────────────
+const normalizeDateString = (date) => {
+  const value = String(date || '')
+  if (!value.includes('T')) return value.slice(0, 10)
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value.slice(0, 10)
+
+  const year = parsed.getFullYear()
+  const month = String(parsed.getMonth() + 1).padStart(2, '0')
+  const day = String(parsed.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const formatDateForDisplay = (date) => normalizeDateString(date).replace(/-/g, '/')
+
+const toDateUtc = (date) => {
+  const [year, month, day] = normalizeDateString(date).split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+const formatDateUtc = (date) => {
+  const year = date.getUTCFullYear()
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(date.getUTCDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getTripDayCount = (startDate, endDate) => {
+  const start = toDateUtc(startDate)
+  const end = toDateUtc(endDate)
+  return Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) + 1
+}
+
+const addDays = (date, days) => {
+  const result = toDateUtc(date)
+  result.setUTCDate(result.getUTCDate() + days)
+  return formatDateUtc(result)
+}
+
+const createDayMap = (startDate, endDate, createDayData) => {
+  const normalizedStartDate = normalizeDateString(startDate)
+  const normalizedEndDate = normalizeDateString(endDate)
+  const dayCount = getTripDayCount(normalizedStartDate, normalizedEndDate)
+  return Array.from({ length: dayCount }).reduce((result, _, index) => {
+    const dayName = `Day ${index + 1}`
+    result[dayName] = createDayData(addDays(normalizedStartDate, index), dayName, index)
+    return result
+  }, {})
+}
+
+const syncDayMapToDates = (dayMap, startDate, endDate, createEmptyDayData) => {
+  const nextDayMap = createDayMap(startDate, endDate, (date, dayName) => ({
+    ...createEmptyDayData(date),
+    ...(dayMap?.[dayName] || {}),
+    date,
+  }))
+  return nextDayMap
+}
+
+const buildTripDateFields = (startDate, endDate) => {
+  const normalizedStartDate = normalizeDateString(startDate)
+  const normalizedEndDate = normalizeDateString(endDate)
+  const dayCount = getTripDayCount(normalizedStartDate, normalizedEndDate)
+
+  return {
+    date: normalizedStartDate.substring(0, 7).replace('-', '/'),
+    startDate: normalizedStartDate,
+    endDate: normalizedEndDate,
+    dates: `${formatDateForDisplay(normalizedStartDate)}-${formatDateForDisplay(normalizedEndDate)}, 共${dayCount}天`,
+  }
+}
+
 const normalizeItineraryItem = (item) => {
   const normalizedItem = {
     ...item,
@@ -35,11 +108,10 @@ const normalizeItineraryItem = (item) => {
 const normalizeTravelData = (data) => {
   const normalizedData = cloneData(data)
 
-  normalizedData.trips = (normalizedData.trips || []).map((trip) => ({
-    ...trip,
-    transfers: Number(trip.transfers || 0),
-    layovers: Array.isArray(trip.layovers) ? trip.layovers : [],
-    itinerary: Object.fromEntries(
+  normalizedData.trips = (normalizedData.trips || []).map((trip) => {
+    const hasDateRange = Boolean(trip.startDate && trip.endDate)
+    const dateFields = hasDateRange ? buildTripDateFields(trip.startDate, trip.endDate) : {}
+    const normalizedItinerary = Object.fromEntries(
       Object.entries(trip.itinerary || {}).map(([dayName, dayData]) => [
         dayName,
         {
@@ -47,8 +119,32 @@ const normalizeTravelData = (data) => {
           items: (dayData.items || []).map(normalizeItineraryItem),
         },
       ])
-    ),
-  }))
+    )
+
+    return {
+      ...trip,
+      id: trip.id || trip.tripId,
+      ...dateFields,
+      transfers: Number(trip.transfers || 0),
+      layovers: Array.isArray(trip.layovers) ? trip.layovers : [],
+      itinerary: hasDateRange
+        ? syncDayMapToDates(
+            normalizedItinerary,
+            dateFields.startDate,
+            dateFields.endDate,
+            (date) => ({ date, weather: '-', items: [] })
+          )
+        : normalizedItinerary,
+      packingItems: hasDateRange
+        ? syncDayMapToDates(
+            trip.packingItems,
+            dateFields.startDate,
+            dateFields.endDate,
+            (date) => ({ date, items: [] })
+          )
+        : trip.packingItems,
+    }
+  })
 
   return normalizedData
 }
@@ -141,54 +237,19 @@ export const loadTripsFromApi = async () => {
   }
 }
 
-// ── 日期工具函式 ────────────────────────────────────────────
-const formatDateForDisplay = (date) => date.replace(/-/g, '/')
-
-const getTripDayCount = (startDate, endDate) => {
-  const start = new Date(`${startDate}T00:00:00`)
-  const end = new Date(`${endDate}T00:00:00`)
-  return Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24)) + 1
-}
-
-const addDays = (date, days) => {
-  const result = new Date(`${date}T00:00:00`)
-  result.setDate(result.getDate() + days)
-  return result.toISOString().slice(0, 10)
-}
-
-const createDayMap = (startDate, endDate, createDayData) => {
-  const dayCount = getTripDayCount(startDate, endDate)
-  return Array.from({ length: dayCount }).reduce((result, _, index) => {
-    const dayName = `Day ${index + 1}`
-    result[dayName] = createDayData(addDays(startDate, index), dayName, index)
-    return result
-  }, {})
-}
-
-const syncDayMapToDates = (dayMap, startDate, endDate, createEmptyDayData) => {
-  const nextDayMap = createDayMap(startDate, endDate, (date, dayName) => ({
-    ...createEmptyDayData(date),
-    ...(dayMap?.[dayName] || {}),
-    date,
-  }))
-  return nextDayMap
-}
-
 export const createTripFromForm = (formData) => {
-  const dayCount = getTripDayCount(formData.startDate, formData.endDate)
-  const displayDates = `${formatDateForDisplay(formData.startDate)}-${formatDateForDisplay(formData.endDate)}, 共${dayCount}天`
-  const displayMonth = formData.startDate.substring(0, 7).replace('-', '/')
+  const dateFields = buildTripDateFields(formData.startDate, formData.endDate)
   const companionText = formData.companion.trim() ? formData.companion : '僅自己'
 
   return {
     id: `trip-${Date.now()}`,
-    date: displayMonth,
+    date: dateFields.date,
     title: formData.destination,
     destination: formData.destination,
     users: companionText,
-    startDate: formData.startDate,
-    endDate: formData.endDate,
-    dates: displayDates,
+    startDate: dateFields.startDate,
+    endDate: dateFields.endDate,
+    dates: dateFields.dates,
     type: '行程規劃',
     transfers: Number(formData.transfers || 0),
     layovers: cloneData(formData.layovers || []),
@@ -201,12 +262,12 @@ export const createTripFromForm = (formData) => {
     coverImage: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1400',
     note: '行程筆記：',
     flights: [],
-    itinerary: createDayMap(formData.startDate, formData.endDate, (date) => ({
+    itinerary: createDayMap(dateFields.startDate, dateFields.endDate, (date) => ({
       date,
       weather: '-',
       items: [],
     })),
-    packingItems: createDayMap(formData.startDate, formData.endDate, (date) => ({
+    packingItems: createDayMap(dateFields.startDate, dateFields.endDate, (date) => ({
       date,
       items: [],
     })),
@@ -243,19 +304,17 @@ export const updateTrip = async (tripId, formData) => {
   const target = getTripById(tripId)
   if (!target) return null
 
-  const dayCount = getTripDayCount(formData.startDate, formData.endDate)
-  const displayDates = `${formatDateForDisplay(formData.startDate)}-${formatDateForDisplay(formData.endDate)}, 共${dayCount}天`
-  const displayMonth = formData.startDate.substring(0, 7).replace('-', '/')
+  const dateFields = buildTripDateFields(formData.startDate, formData.endDate)
   const companionText = formData.companion.trim() ? formData.companion : '僅自己'
 
   Object.assign(target, {
-    date: displayMonth,
+    date: dateFields.date,
     title: formData.destination,
     destination: formData.destination,
     users: companionText,
-    startDate: formData.startDate,
-    endDate: formData.endDate,
-    dates: displayDates,
+    startDate: dateFields.startDate,
+    endDate: dateFields.endDate,
+    dates: dateFields.dates,
     transfers: Number(formData.transfers || 0),
     layovers: cloneData(formData.layovers || []),
     fatigue: Number(formData.transfers || 0) > 0 ? '計算中...' : target.fatigue,
@@ -263,14 +322,14 @@ export const updateTrip = async (tripId, formData) => {
 
   target.itinerary = syncDayMapToDates(
     target.itinerary,
-    formData.startDate,
-    formData.endDate,
+    dateFields.startDate,
+    dateFields.endDate,
     (date) => ({ date, weather: '-', items: [] })
   )
   target.packingItems = syncDayMapToDates(
     target.packingItems,
-    formData.startDate,
-    formData.endDate,
+    dateFields.startDate,
+    dateFields.endDate,
     (date) => ({ date, items: [] })
   )
 
