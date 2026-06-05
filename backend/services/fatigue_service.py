@@ -139,6 +139,17 @@ def analyze_fatigue(
 
 
 
+def _get_low_level_battery(score: float) -> int:
+    """
+    短程 / 低分數時，依分數在低區間的相對位置呈現差異化電池值。
+    score 0-30 映射到 85-65（原低等級的 85 為基準，逐步降低）
+    """
+    battery = 85 - int(score * 0.67)
+    return max(65, battery)
+
+
+
+
 def _get_level(score: float) -> tuple:
     """
     依分數回傳（等級文字, 建議恢復小時數, 電池趴數, 建議開始時間, 行程類型）
@@ -150,4 +161,4 @@ def _get_level(score: float) -> tuple:
     elif score >= 30:
         return ("中等", 6, 65, "10:00", "一般行程")
     else:
-        return ("低", 4, 85, "09:00", "一般行程")
+        return ("低", 4, _get_low_level_battery(score), "09:00", "一般行程")
