@@ -9,47 +9,52 @@
       <!-- 使用者訊息：純文字 -->
       <span v-if="isUser">{{ message.content }}</span>
 
-      <!-- AI 回覆：支援換行 + **粗體** -->
-      <div v-else class="leading-relaxed whitespace-pre-wrap break-words">
-        <template v-for="(line, i) in formattedLines" :key="i">
-          <div :class="line.isBlank ? 'h-2' : ''">
-            <template v-if="!line.isBlank">
-              <span
-                v-for="(seg, j) in line.segments"
-                :key="j"
-                :class="seg.bold ? 'font-semibold' : ''"
-              >{{ seg.text }}</span>
-            </template>
+      <!-- AI 回覆 -->
+      <div v-else class="leading-relaxed break-words">
+        <!-- 有卡片時：只顯示標題 + 卡片（不顯示逐行文字） -->
+        <template v-if="spots.length">
+          <p v-if="displayTitle" class="mb-2 font-semibold">{{ displayTitle }}</p>
+          <div class="space-y-2">
+            <div
+              v-for="(spot, k) in spots"
+              :key="k"
+              class="flex items-start gap-2 rounded-2xl bg-[#F8FAFC] p-3"
+            >
+              <div class="flex-1">
+                <div class="flex items-baseline gap-2">
+                  <span class="text-xs text-[#64748B]">{{ spot.arrivalTime }}</span>
+                  <span class="font-semibold text-[#1E293B]">{{ spot.name }}</span>
+                </div>
+                <p v-if="spot.description" class="mt-1 text-xs text-gray-600">
+                  {{ spot.description }}
+                </p>
+                <p v-if="spot.notes" class="mt-1 text-xs text-gray-500">
+                  💡 {{ spot.notes }}
+                </p>
+              </div>
+              <button
+                @click="$emit('add-spot', spot)"
+                class="shrink-0 h-7 w-7 rounded-full text-white flex items-center justify-center"
+                style="background-color: #7E99BF;"
+                title="加入行程"
+              >+</button>
+            </div>
           </div>
         </template>
 
-        <!-- Task 2：結構化行程建議卡片，每張可單獨加入 -->
-        <div v-if="spots.length" class="mt-3 space-y-2">
-          <div
-            v-for="(spot, k) in spots"
-            :key="k"
-            class="flex items-start gap-2 rounded-2xl bg-[#F8FAFC] p-3"
-          >
-            <div class="flex-1">
-              <div class="flex items-baseline gap-2">
-                <span class="text-xs text-[#64748B]">{{ spot.arrivalTime }}</span>
-                <span class="font-semibold text-[#1E293B]">{{ spot.name }}</span>
-              </div>
-              <p v-if="spot.description" class="mt-1 text-xs text-gray-600">
-                {{ spot.description }}
-              </p>
-              <p v-if="spot.notes" class="mt-1 text-xs text-gray-500">
-                💡 {{ spot.notes }}
-              </p>
+        <!-- 無卡片時（純文字對話）：照原本的換行 + 粗體渲染 -->
+        <div v-else class="whitespace-pre-wrap">
+          <template v-for="(line, i) in formattedLines" :key="i">
+            <div :class="line.isBlank ? 'h-2' : ''">
+              <template v-if="!line.isBlank">
+                <span
+                  v-for="(seg, j) in line.segments"
+                  :key="j"
+                  :class="seg.bold ? 'font-semibold' : ''"
+                >{{ seg.text }}</span>
+              </template>
             </div>
-            <!-- 加號：加入當前選取日的行程 -->
-            <button
-              @click="$emit('add-spot', spot)"
-              class="shrink-0 h-7 w-7 rounded-full text-white flex items-center justify-center"
-              style="background-color: #7E99BF;"
-              title="加入行程"
-            >+</button>
-          </div>
+          </template>
         </div>
       </div>
     </div>
@@ -67,16 +72,21 @@ defineEmits(['add-spot'])
 
 const isUser = computed(() => props.message.role === 'user')
 
-// 結構化行程 spots（沒有則為空陣列，不渲染卡片）
+// 結構化行程 spots（沒有則為空陣列）
 const spots = computed(() => props.message.spots || [])
 
-/** 把文字按行分割，並解析每行中的 **粗體** 區段 */
+// 從 AI 回覆文字抽出第一行標題（去掉 ** 符號），供有卡片時顯示
+const displayTitle = computed(() => {
+  const raw = props.message.content || ''
+  const firstLine = raw.split('\n').find((l) => l.trim() !== '') || ''
+  return firstLine.replace(/\*\*/g, '').trim()
+})
+
+/** 把文字按行分割，並解析每行中的 **粗體** 區段（純文字對話時使用） */
 const formattedLines = computed(() => {
   const raw = props.message.content || ''
   return raw.split('\n').map((line) => {
     if (line.trim() === '') return { isBlank: true, segments: [] }
-
-    // 解析 **text** → { text, bold }
     const segments = []
     const regex = /\*\*(.+?)\*\*/g
     let last = 0
