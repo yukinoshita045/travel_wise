@@ -2,6 +2,7 @@
 
 # ── 個人開發筆記（不 commit）──
 TODO.md
+claude.md
 
 # ── 環境變數（絕對不能 commit）──
 .env

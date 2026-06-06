@@ -1,7 +1,8 @@
 # TravelWise — Project Overview for Claude
 
-> 最後更新：2026-06-01  
-> 整合狀態：`main` 後端 + `frontend-adjust` 前端已合併完畢
+> 最後更新：2026-06-03  
+> 整合狀態：`main` 後端 + `frontend-adjust` 前端已合併完畢  
+> ⚠️ 本文件新增了「Section 13 前後端串聯清單」與「Section 14 假資料標注」，供 Opus 審查後執行
 
 ---
 
@@ -245,11 +246,170 @@ pytest tests/integration/          # 只跑整合測試
 - ✅ 前端狀態透過 `travelStore.js` + `localStorage` 串聯各頁面
 - ✅ AI 聊天（ChatPanel）整合進 ItineraryPage
 
-### 待處理 / 已知限制
-- ⚠️  `ChatPanel.vue` 的 `tripParams` 目前寫死為 `{ destination: 'Tokyo', days: 3, travelers: 1 }`，應替換為當前 trip 的真實資料
-- ⚠️  `TravelDashboard` 的 `Auth.vue` Firebase 登入流程需搭配正確的 Firebase 設定才能完整運作（`FLASK_TESTING=true` 可在開發時繞過）
-- ⚠️  `FlightPage` 的航班資料目前來自 `travelStore` 本地資料；若要接真實後端 `/api/flight/info`，需在頁面中呼叫 API 並更新 store
-- ⚠️  後端 MongoDB 相關 API（itinerary、trip、chat）需 `MONGO_URI` 才能正常運作，本地開發若無 MongoDB 連線，這些 endpoint 會回 500
+### 待處理 / 已知限制（詳見 Section 13 & 14）
+
+- 🔴 `ChatPanel.vue:177-189` MOCK 擋住 `/api/chat`（刪掉即可啟用）
+- 🔴 `Auth.vue` 沒有真實 Firebase 認證，`authToken` 永遠不會被設定
+- ❌ `FlightPage` 沒有「新增/查詢航班」UI；`/api/flight/info` 後端已就緒但前端未串
+- ❌ `TripPlan.vue` 走 ChatPanel（`/api/chat`），`/api/trip/plan` 沒有前端入口
+- ❌ `/api/budget`、`/api/places`（前端獨立呼叫）完全未串聯
+- ⚠️  `ChatPanel.vue` tripParams 已改為讀真實 trip 資料（舊問題已修）
+- ⚠️  後端 MongoDB 相關 API（itinerary、trip、chat）需 `MONGO_URI`，無連線時回 500
+
+---
+
+## 13. 前後端串聯清單（完整）
+
+> 圖例：✅ 已串聯  ⚠️ 部分串聯／有問題  ❌ 完全未串聯  🔴 MOCK（假資料擋住真實呼叫）
+
+### 13-A. 認證（Auth）
+
+| 項目 | 前端檔案 | 後端機制 | 狀態 |
+|------|----------|----------|------|
+| Firebase 登入 | `Auth.vue` | Firebase Admin SDK `@require_auth` | 🔴 **MOCK** — `Auth.vue` 只是 alert + emit，完全沒有呼叫 Firebase SDK；登入後 `localStorage` 沒有真實 ID Token |
+| axios 帶 Token | `api/client.js:8` | `Authorization: Bearer <token>` | ⚠️ fallback 為 `'TEST_MODE'`（`FLASK_TESTING=true` 時有效，正式環境會 401） |
+| 啟動時同步旅程 | `main.js:8` `loadTripsFromApi()` | `GET /api/trips` | ⚠️ 在使用者登入前就執行，Token 永遠是 `TEST_MODE` |
+
+**需要做的事：**
+1. 在 `Auth.vue` 中整合 Firebase SDK（`signInWithEmailAndPassword` / `createUserWithEmailAndPassword`）
+2. 登入成功後把 `await user.getIdToken()` 存入 `localStorage.setItem('authToken', token)`
+3. 把 `loadTripsFromApi()` 移到登入成功後觸發，或加入 token 守衛
+
+---
+
+### 13-B. 旅程 CRUD（Trips）
+
+| 操作 | 前端入口 | 後端端點 | 狀態 |
+|------|----------|----------|------|
+| 啟動載入旅程 | `travelStore.js:116` `loadTripsFromApi()` | `GET /api/trips` | ✅ 已串聯（但 Token 問題見 13-A） |
+| 新增旅程 | `TravelDashboard.vue` → `addTrip()` | `POST /api/trips` | ✅ 已串聯 |
+| 更新旅程（含編輯表單） | `TravelDashboard.vue` → `updateTrip()` | `PUT /api/trips/:id` | ✅ 已串聯 |
+| 刪除旅程 | `TripCard.vue`（三點選單）→ `deleteTrip()` | `DELETE /api/trips/:id` | ✅ 已串聯 |
+| 行程 items 儲存（新增/編輯/刪除 item） | `ItineraryPage.vue` → `saveTripChanges()` | `PUT /api/trips/:id` | ✅ 已串聯 |
+| 批次同步（localStorage → 後端） | `travelStore.js:131` `apiSyncTrips()` | `POST /api/trips/sync` | ✅ 已串聯 |
+
+---
+
+### 13-C. 航班（Flight）
+
+| 操作 | 前端入口 | 後端端點 | 狀態 |
+|------|----------|----------|------|
+| 查詢航班即時資料 | 無（尚未實作） | `GET /api/flight/info?flightNum=&date=` | ❌ **完全未串聯** — 後端 API 就緒，前端沒有任何 UI 或呼叫 |
+| 顯示航班 | `FlightPage.vue:16` `trip.value.flights` | （不呼叫後端） | 🔴 **全靠 travelStore 本地資料**（來自 travelData.json mock 或手動加入） |
+| 新增航班到旅程 | 無對應 UI | — | ❌ **FlightPage 沒有「新增航班」按鈕** |
+| TripModal 轉機資料 | `TripModal.vue` → `layovers[]` | — | ⚠️ `layovers[]` 只存城市/小時/航班號，**從未呼叫 `/api/flight/info` 自動帶入真實資料**，也不填入 `trip.flights[]` |
+
+**需要做的事：**
+1. 在 FlightPage 或 TripModal 新增「查詢航班」功能，呼叫 `GET /api/flight/info?flightNum=&date=`
+2. 把查詢結果寫入 `trip.flights[]` 並 `saveTripChanges()`
+3. 新增 `frontend/src/api/flight.js` 封裝此呼叫
+
+---
+
+### 13-D. AI 聊天（Chat）
+
+| 操作 | 前端入口 | 後端端點 | 狀態 |
+|------|----------|----------|------|
+| 傳送訊息 | `ChatPanel.vue:196` `sendChat()` | `POST /api/chat` | 🔴 **MOCK 擋住** — `handleSend()` 第 179-189 行有 hardcoded 假回應 + `return`，永遠不會到達真實 API 呼叫 |
+| 傳遞旅程上下文 | `ChatPanel.vue:111` `getTripParams()` | 作為 `tripParams` 傳送 | ✅ 已改為讀取真實 trip 資料（舊版寫死 Tokyo 的問題已修） |
+| 對話歷史 | `conversationId.value` | MongoDB 存對話 | ✅ 邏輯正確，但被 MOCK 擋住無法驗證 |
+
+**需要做的事：**
+1. **刪除 `ChatPanel.vue` 177-189 行的 mock 程式碼**（有明確備註「OpenAI key 修好後請刪掉這整段」）
+2. 確保 `OPENAI_API_KEY` 在後端 `.env` 中正確設定
+
+---
+
+### 13-E. AI 行程規劃（TripPlan）
+
+| 操作 | 前端入口 | 後端端點 | 狀態 |
+|------|----------|----------|------|
+| 一站式行程規劃 | `api/trip.js:3` `planTrip()` | `POST /api/trip/plan` | ❌ **完全未串聯** — `planTrip()` 函式定義了但沒有任何元件呼叫它 |
+| TripPlan 頁面 | `TripPlan.vue` | — | ⚠️ 只是包裝 `ChatPanel`，走 `/api/chat` 而非 `/api/trip/plan` |
+
+**需要做的事：**
+- 決定 `TripPlan.vue` 的定位：要改成呼叫 `/api/trip/plan` 的專用規劃頁，還是保持用 ChatPanel？目前兩者功能重疊
+
+---
+
+### 13-F. 天氣（Weather）
+
+| 操作 | 前端入口 | 後端端點 | 狀態 |
+|------|----------|----------|------|
+| 查詢每日天氣 | `travelStore.js:380` `refreshWeatherForTrip()` | `GET /api/weather?destination=` | ✅ 已串聯 |
+| TripOverviewPage 觸發 | `TripOverviewPage.vue:191` `onMounted` | — | ✅ 頁面載入時自動更新 |
+
+---
+
+### 13-G. 匯率（Currency）
+
+| 操作 | 前端入口 | 後端端點 | 狀態 |
+|------|----------|----------|------|
+| 查詢匯率 | `travelStore.js:326` `refreshCurrencyForTrip()` | `GET /api/currency/rates?base=TWD` | ✅ 已串聯 |
+| 幣別推斷 | `currency.js:22` `inferCurrencyFromDestination()` | （前端純邏輯） | ✅ 支援中英文目的地 |
+| 金額換算 | `currency.js:11` `convertCurrency()` | `POST /api/currency/convert` | ⚠️ API 已定義，但沒有元件呼叫（UI 無換算功能） |
+
+---
+
+### 13-H. 疲勞指數（Fatigue）
+
+| 操作 | 前端入口 | 後端端點 | 狀態 |
+|------|----------|----------|------|
+| 疲勞分析 | `travelStore.js:409` `refreshFatigueForTrip()` | `POST /api/fatigue/analyze` | ✅ 已串聯 |
+| FlightPage 顯示 | `FlightPage.vue:23` `trip._fatigueDetail` | — | ✅ 讀取 store 已更新的值 |
+| 觸發時機 | `FlightPage.vue:78` / `TripOverviewPage.vue:191` `onMounted` | — | ✅ 頁面載入時自動更新 |
+
+---
+
+### 13-I. 行程 API（Itinerary Blueprint）
+
+| 操作 | 前端入口 | 後端端點 | 狀態 |
+|------|----------|----------|------|
+| AI 推薦行程（存 MongoDB） | `api/trip.js:5` `getItinerary()` | `POST /api/itinerary/recommend` | ❌ `getItinerary()` 是 GET 方法，且沒有任何元件呼叫 |
+| 歷史行程列表 | 無 | `GET /api/itinerary/user/history` | ❌ 完全未串聯 |
+| 取得單一行程 | `api/trip.js:5` `getItinerary(id)` | `GET /api/itinerary/:id` | ❌ 已定義但從未呼叫 |
+| 更新行程 | — | `PUT /api/itinerary/:id` | ❌ 完全未串聯 |
+| 刪除行程 | — | `DELETE /api/itinerary/:id` | ❌ 完全未串聯 |
+
+> 注意：前端目前的「行程管理」（ItineraryPage 的每日 items）走 `/api/trips` CRUD，不是 `/api/itinerary`。`/api/itinerary` 的定位是 AI 生成、存 MongoDB 的「行程推薦文件」，與前端日常編輯的行程 items 是兩個不同層級的資料。需釐清使用情境。
+
+---
+
+### 13-J. 預算（Budget）與景點搜尋（Places）
+
+| 功能 | 前端 | 後端端點 | 狀態 |
+|------|------|----------|------|
+| 預算估算 | 無 `api/budget.js` | `POST /api/budget/estimate` | ❌ **完全未串聯**（無前端呼叫，無 api 封裝） |
+| Google Places 搜尋 | 無 | `GET /api/places/search` | ❌ **完全未串聯**（後端使用於 `/api/trip/plan` 內部，但前端沒有景點搜尋 UI） |
+
+---
+
+## 14. 假資料（Mock Data）標注
+
+### 🔴 Level 1：阻擋真實 API 呼叫的 MOCK（最高優先修復）
+
+| 位置 | 描述 | 如何解除 |
+|------|------|---------|
+| `ChatPanel.vue:177-189` | `handleSend()` 最頂端直接 push 假回應然後 `return`，完全繞過後端 chat API | 刪除該段 mock 程式碼（已有備註說明）；確保 `OPENAI_API_KEY` 設定 |
+| `Auth.vue:79-95` | `handleSubmit()` 只做 `alert()` 後 emit，無任何真實認證 | 整合 Firebase SDK；登入後把 ID Token 存入 `localStorage.setItem('authToken', token)` |
+
+### 🟡 Level 2：使用本地假資料但不阻擋 API（次要修復）
+
+| 位置 | 描述 | 影響範圍 |
+|------|------|---------|
+| `travelData.json` | 初始旅程資料，內含完整 mock trips（CI108 東京航班、行程 items 等） | 若 localStorage 為空 且 `/api/trips` 無資料，這份資料會被當成真實資料顯示 |
+| `FlightPage.vue:16` `trip.value.flights` | 航班卡片完全讀自 store，store 的 `flights[]` 只有 travelData.json 的 mock 資料；無 UI 新增/刪除 | FlightPage 呈現假航班，時差計算也以假資料為基礎 |
+| `travelStore.js:195-201` | `createTripFromForm()` 中 `coverImage` 寫死為 Unsplash 照片連結 | 新增旅程的封面永遠是同一張預設圖 |
+| `TripModal.vue` `layovers[]` | 轉機資料儲存後，航班號不會自動查詢 `/api/flight/info` 填入真實資訊 | 轉機/疲勞計算缺乏真實起降時間與時區 |
+
+### 🟢 Level 3：前端邏輯層的硬編碼（低優先）
+
+| 位置 | 描述 |
+|------|------|
+| `travelStore.js:362-378` `toEnglishDestination()` | 中文城市名硬編碼對應英文，不在此 map 中的城市無法查天氣 |
+| `currency.js:22-93` `inferCurrencyFromDestination()` | 目的地 → 幣別硬編碼對應表，不在列表的地區查不到匯率 |
+| `FlightPage.vue:29` `fatigueScore` fallback | 若 `_fatigueDetail` 不存在，fallback 計算 `100 - parseFloat(fatigue)%`，再 fallback 到 `82` |
+| `travelStore.js:434` `isRedEye: false` | 疲勞計算中「是否紅眼班機」寫死為 false，不讀 TripModal 的補眠設定 |
 
 ---
 
