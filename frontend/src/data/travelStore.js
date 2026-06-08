@@ -208,6 +208,12 @@ const normalizeApiTrip = (apiTrip) => {
   return normalized.trips[0]
 }
 
+// ── 清空本地旅程快取（切換使用者時呼叫，避免上一個帳號的資料殘留）──
+export const clearLocalTrips = () => {
+  trips.splice(0, trips.length)
+  persistTravelData()
+}
+
 // ── 啟動時嘗試從後端載入旅程 ────────────────────────────────
 export const loadTripsFromApi = async () => {
   try {

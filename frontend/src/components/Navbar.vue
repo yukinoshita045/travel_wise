@@ -25,8 +25,8 @@
 
           <div v-show="showProfileMenu" class="absolute right-0 mt-3 w-48 bg-white rounded-xl shadow-[0_5px_15px_-3px_rgba(0,0,0,0.1)] border border-slate-100 py-1 z-50">
             <div class="px-4 py-3 border-b border-slate-50">
-              <p class="text-sm font-bold text-slate-700">TravelWise 旅客</p>
-              <p class="text-xs text-slate-400 truncate mt-0.5">user@travelwise.com</p>
+              <p class="text-sm font-bold text-slate-700">{{ displayName }}</p>
+              <p class="text-xs text-slate-400 truncate mt-0.5">{{ userEmail }}</p>
             </div>
             <a href="#" @click.prevent="handleSettingsClick" class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-[#2B55CC] transition-colors">
               個人設定
@@ -40,11 +40,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
+import { clearLocalTrips } from '../data/travelStore';
 
 const showProfileMenu = ref(false);
+
+// 目前登入的使用者（email 存在 sessionStorage，登入時由 Auth.vue 寫入）
+const userEmail = computed(() => sessionStorage.getItem('travelwise:currentUser') || '');
+const displayName = computed(() => {
+  const email = userEmail.value;
+  return email ? email.split('@')[0] : 'TravelWise 旅客';
+});
 
 const handleSettingsClick = () => {
   alert('個人設定功能開發中，敬請期待！');
@@ -58,6 +66,8 @@ const handleLogout = async () => {
   }
   sessionStorage.removeItem('travelwise:currentUser');
   localStorage.removeItem('authToken');
+  // 清掉本地旅程快取，避免下一位使用者載入到上一位的殘留資料
+  clearLocalTrips();
   window.location.href = '/';
 };
 </script>
