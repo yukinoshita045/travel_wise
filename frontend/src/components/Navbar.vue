@@ -41,6 +41,8 @@
 
 <script setup>
 import { ref } from 'vue';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
 
 const showProfileMenu = ref(false);
 
@@ -48,8 +50,14 @@ const handleSettingsClick = () => {
   alert('個人設定功能開發中，敬請期待！');
 };
 
-const handleLogout = () => {
+const handleLogout = async () => {
+  try {
+    await signOut(auth);
+  } catch (err) {
+    console.warn('[Navbar] 登出時發生錯誤:', err?.message || err);
+  }
   sessionStorage.removeItem('travelwise:currentUser');
+  localStorage.removeItem('authToken');
   window.location.href = '/';
 };
 </script>

@@ -90,7 +90,7 @@ import Navbar from './components/Navbar.vue';
 import TripCard from './components/TripCard.vue';
 import TripModal from './components/TripModal.vue'; // 👈 引入彈窗元件
 import Auth from './components/Auth.vue'; // 👈 引入登入元件
-import { addTrip, deleteTrip, trips, updateTrip } from './data/travelStore.js';
+import { addTrip, deleteTrip, trips, updateTrip, loadTripsFromApi } from './data/travelStore.js';
 
 const router = useRouter();
 const savedUser = sessionStorage.getItem('travelwise:currentUser') || '';
@@ -104,6 +104,8 @@ const handleLogin = (username) => {
     currentUser.value = username;
     isLoggedIn.value = true;
     sessionStorage.setItem('travelwise:currentUser', username);
+    // 登入成功後才帶著真實 token 從後端載入該使用者的旅程
+    loadTripsFromApi();
 };
 
 const defaultCover = myCoverImage;
