@@ -25,5 +25,10 @@ def weather():
     if not destination:
         return jsonify({"error": "缺少 destination 參數"}), 400
 
-    result = get_weather_and_clothing(destination=destination, date=date)
+    try:
+        result = get_weather_and_clothing(destination=destination, date=date)
+    except ValueError as e:
+        # 查無城市 → 回 404，不要讓它變成 500 traceback
+        return jsonify({"error": str(e), "forecast": []}), 404
+
     return jsonify(result), 200

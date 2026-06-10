@@ -11,6 +11,32 @@ from utils.cache import get_cache, set_cache
 OPEN_METEO_BASE = os.getenv("OPEN_METEO_BASE_URL", "https://api.open-meteo.com/v1")
 GEO_BASE        = "https://geocoding-api.open-meteo.com/v1"
 
+# Open-Meteo geocoding 用中文城市名常常查不到，這裡做中文→英文 fallback。
+# 前端 toEnglishDestination 已轉部分城市，但台灣等城市會漏，後端再補一層保險。
+_ZH_CITY = {
+    "台北": "Taipei", "臺北": "Taipei", "台中": "Taichung", "臺中": "Taichung",
+    "台南": "Tainan", "臺南": "Tainan", "高雄": "Kaohsiung", "新北": "New Taipei",
+    "桃園": "Taoyuan", "台灣": "Taiwan", "臺灣": "Taiwan",
+    "東京": "Tokyo", "大阪": "Osaka", "京都": "Kyoto", "札幌": "Sapporo",
+    "福岡": "Fukuoka", "名古屋": "Nagoya", "沖繩": "Okinawa", "那霸": "Naha",
+    "日本": "Japan", "首爾": "Seoul", "釜山": "Busan", "濟州": "Jeju", "韓國": "Korea",
+    "曼谷": "Bangkok", "清邁": "Chiang Mai", "普吉": "Phuket", "泰國": "Thailand",
+    "香港": "Hong Kong", "澳門": "Macau", "新加坡": "Singapore",
+    "北京": "Beijing", "上海": "Shanghai", "廣州": "Guangzhou", "深圳": "Shenzhen",
+    "倫敦": "London", "巴黎": "Paris", "羅馬": "Rome", "紐約": "New York",
+    "洛杉磯": "Los Angeles", "舊金山": "San Francisco",
+    "河內": "Hanoi", "胡志明": "Ho Chi Minh City", "吉隆坡": "Kuala Lumpur",
+    "雪梨": "Sydney", "墨爾本": "Melbourne",
+}
+
+
+def _to_search_name(city: str) -> str:
+    """把含中文的目的地轉成英文搜尋字（命中對應表就用英文，否則原樣回傳）"""
+    for zh, en in _ZH_CITY.items():
+        if zh in city:
+            return en
+    return city
+
 
 def get_weather_and_clothing(destination: str, date: str | None = None) -> dict:
     """
@@ -90,15 +116,24 @@ def get_weather_and_clothing(destination: str, date: str | None = None) -> dict:
 
 
 def _geocode(city: str) -> tuple[float, float, str]:
-    """Open-Meteo geocoding → (lat, lon, name)"""
-    url  = f"{GEO_BASE}/search?name={city}&count=1&language=zh&format=json"
-    resp = requests.get(url, timeout=10)
-    resp.raise_for_status()
-    results = resp.json().get("results", [])
-    if not results:
-        raise ValueError(f"找不到城市：{city}")
-    r = results[0]
-    return r["latitude"], r["longitude"], r.get("name", city)
+    """Open-Meteo geocoding → (lat, lon, name)。中文城市先轉英文再查，較不會查無。"""
+    # 先用（可能轉英文後的）名稱查，查不到再用原始字串試一次
+    candidates = []
+    search = _to_search_name(city)
+    candidates.append(search)
+    if city != search:
+        candidates.append(city)
+
+    for name in candidates:
+        url  = f"{GEO_BASE}/search?name={name}&count=1&language=zh&format=json"
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        results = resp.json().get("results", [])
+        if results:
+            r = results[0]
+            return r["latitude"], r["longitude"], r.get("name", city)
+
+    raise ValueError(f"找不到城市：{city}")
 
 
 def _feels_like(temp_c: float, humidity: float, wind_kmh: float) -> float:
