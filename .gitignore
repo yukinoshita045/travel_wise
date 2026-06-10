@@ -1,5 +1,6 @@
 # .gitignore
 
+
 # ── 個人開發筆記（不 commit）──
 TODO.md
 claude.md
@@ -28,6 +29,7 @@ venv/
 # ── Firebase ──
 firebase_config.json
 serviceAccountKey.json
+firebase_service_account.json
 
 # ── IDE ──
 .vscode/settings.json

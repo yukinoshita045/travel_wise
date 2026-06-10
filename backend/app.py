@@ -3,7 +3,9 @@ TravelWise Backend — Flask Application Entry Point
 所有 Blueprint 在這裡集中註冊，Swagger UI 也在這裡掛載
 """
 
-from flask import Flask
+import os
+
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flasgger import Swagger
 
@@ -27,12 +29,19 @@ def create_app():
     app.config["JSON_ENSURE_ASCII"] = False  # Flask 2.x
     app.json.ensure_ascii = False             # Flask 3.x
 
-    # ── CORS（允許前端 localhost:5173 存取）──
-    CORS(app, resources={r"/api/*": {"origins": [
+    # ── CORS ──
+    # 預設允許本機開發來源；正式環境用 CORS_ORIGINS 環境變數注入
+    # （逗號分隔，例如 "https://travel-wise.vercel.app,https://www.example.com"）
+    default_origins = [
         "http://localhost:5173",
         "http://localhost:3000",
-        "https://your-production-domain.com",
-    ]}})
+    ]
+    env_origins = [
+        o.strip()
+        for o in os.getenv("CORS_ORIGINS", "").split(",")
+        if o.strip()
+    ]
+    CORS(app, resources={r"/api/*": {"origins": default_origins + env_origins}})
 
     # ── Swagger UI → http://localhost:5000/api/docs ──
     Swagger(app, config=SWAGGER_CONFIG)
@@ -52,6 +61,11 @@ def create_app():
     app.register_blueprint(currency_bp,   url_prefix="/api/currency")
     app.register_blueprint(trips_bp,      url_prefix="/api/trips")
 
+    # ── 健康檢查（Render health check 用，免認證）──
+    @app.get("/healthz")
+    def healthz():
+        return jsonify({"status": "ok"}), 200
+
     # ── 統一錯誤處理 ──
     register_error_handlers(app)
 
@@ -59,7 +73,6 @@ def create_app():
 
 
 if __name__ == "__main__":
-    import os
     from dotenv import load_dotenv
     load_dotenv()
 
