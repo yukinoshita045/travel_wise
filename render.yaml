@@ -47,10 +47,12 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
-        value: gpt-4o
+        value: gpt-5-mini
 
-      # ── 航班 API（AeroDataBox / AviationStack via RapidAPI）──
+      # ── 航班 API（RapidAPI + AviationStack，兩個 key 程式都會讀）──
       - key: RAPIDAPI_KEY
+        sync: false
+      - key: AVIATIONSTACK_API_KEY
         sync: false
 
       # ── 景點 API（選用）──
