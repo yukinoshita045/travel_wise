@@ -56,13 +56,14 @@ def get_weather_and_clothing(destination: str, date: str | None = None) -> dict:
     # 1. Geocoding
     lat, lon, resolved_name = _geocode(destination)
 
-    # 2. 取得 7 天預報
+    # 2. 取得未來預報（Open-Meteo 免費最多 16 天；涵蓋較遠的行程）
     forecast_url = (
         f"{OPEN_METEO_BASE}/forecast"
         f"?latitude={lat}&longitude={lon}"
         "&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,"
         "weathercode,windspeed_10m_max"
         "&hourly=relativehumidity_2m"
+        "&forecast_days=16"
         "&timezone=auto"
     )
     resp = requests.get(forecast_url, timeout=10)
@@ -75,14 +76,19 @@ def get_weather_and_clothing(destination: str, date: str | None = None) -> dict:
     hourly_humidity = raw_hourly.get("relativehumidity_2m", [])
 
     for i, dt in enumerate(raw.get("time", [])):
-        t_max      = raw["temperature_2m_max"][i]
-        t_min      = raw["temperature_2m_min"][i]
-        wind_kmh   = raw["windspeed_10m_max"][i]
-        precip_pct = raw["precipitation_probability_max"][i]
-        wcode      = raw["weathercode"][i]
+        t_max = raw["temperature_2m_max"][i]
+        t_min = raw["temperature_2m_min"][i]
+        # 溫度缺值（遠日資料尚未產生）→ 跳過該天，不放進預報
+        if t_max is None or t_min is None:
+            continue
 
-        # 取當天 24 小時的平均濕度（每天 24 筆）
-        day_humidity = hourly_humidity[i*24:(i+1)*24]
+        # 其餘欄位遠日也可能 None，給安全預設
+        wind_kmh   = raw["windspeed_10m_max"][i] or 0
+        precip_pct = raw["precipitation_probability_max"][i] or 0
+        wcode      = raw["weathercode"][i] or 0
+
+        # 取當天 24 小時的平均濕度（每天 24 筆；遠日資料可能含 None，要濾掉）
+        day_humidity = [h for h in hourly_humidity[i*24:(i+1)*24] if h is not None]
         humidity = round(sum(day_humidity) / len(day_humidity), 1) if day_humidity else 60
 
         feels = _feels_like(t_max, humidity, wind_kmh)
