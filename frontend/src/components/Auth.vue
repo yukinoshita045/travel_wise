@@ -30,7 +30,7 @@
                   <form @submit.prevent="handleSubmit" class="space-y-5">
                       <div class="flex items-center">
                           <label class="w-24 text-slate-500 font-medium text-lg tracking-widest shrink-0">帳號</label>
-                          <input type="text" v-model="form.username" placeholder="用戶名/電子郵件" required class="w-full px-4 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#8fa4c3] focus:border-transparent transition-colors placeholder:text-slate-300">
+                          <input type="email" v-model="form.username" placeholder="電子郵件" required class="w-full px-4 py-2 border border-slate-300 rounded focus:outline-none focus:ring-2 focus:ring-[#8fa4c3] focus:border-transparent transition-colors placeholder:text-slate-300">
                       </div>
 
                       <div class="flex items-center">
@@ -45,14 +45,18 @@
                           </div>
                       </transition>
 
+                      <transition name="fade">
+                          <p v-if="errorMsg" class="text-sm text-red-500 text-center -mb-2">{{ errorMsg }}</p>
+                      </transition>
+
                       <div class="flex gap-4 pt-4 mt-2">
                           <template v-if="isLogin">
-                              <button type="button" @click="toggleMode" class="flex-1 py-2 px-4 bg-white border-2 border-[#8fa4c3] text-[#8fa4c3] font-medium text-lg rounded-[20px] hover:bg-slate-50 transition-colors tracking-widest shadow-sm">註冊</button>
-                              <button type="submit" class="flex-1 py-2 px-4 bg-[#8fa4c3] border-2 border-[#8fa4c3] text-white font-medium text-lg rounded-[20px] hover:bg-[#7a8fae] transition-colors tracking-widest shadow-sm">登入</button>
+                              <button type="button" @click="toggleMode" :disabled="loading" class="flex-1 py-2 px-4 bg-white border-2 border-[#8fa4c3] text-[#8fa4c3] font-medium text-lg rounded-[20px] hover:bg-slate-50 transition-colors tracking-widest shadow-sm disabled:opacity-50">註冊</button>
+                              <button type="submit" :disabled="loading" class="flex-1 py-2 px-4 bg-[#8fa4c3] border-2 border-[#8fa4c3] text-white font-medium text-lg rounded-[20px] hover:bg-[#7a8fae] transition-colors tracking-widest shadow-sm disabled:opacity-50">{{ loading ? '處理中…' : '登入' }}</button>
                           </template>
                           <template v-else>
-                              <button type="button" @click="toggleMode" class="flex-1 py-2 px-4 bg-white border-2 border-[#8fa4c3] text-[#8fa4c3] font-medium text-lg rounded-[20px] hover:bg-slate-50 transition-colors tracking-widest shadow-sm">取消</button>
-                              <button type="submit" class="flex-1 py-2 px-4 bg-[#8fa4c3] border-2 border-[#8fa4c3] text-white font-medium text-lg rounded-[20px] hover:bg-[#7a8fae] transition-colors tracking-widest shadow-sm">註冊</button>
+                              <button type="button" @click="toggleMode" :disabled="loading" class="flex-1 py-2 px-4 bg-white border-2 border-[#8fa4c3] text-[#8fa4c3] font-medium text-lg rounded-[20px] hover:bg-slate-50 transition-colors tracking-widest shadow-sm disabled:opacity-50">取消</button>
+                              <button type="submit" :disabled="loading" class="flex-1 py-2 px-4 bg-[#8fa4c3] border-2 border-[#8fa4c3] text-white font-medium text-lg rounded-[20px] hover:bg-[#7a8fae] transition-colors tracking-widest shadow-sm disabled:opacity-50">{{ loading ? '處理中…' : '註冊' }}</button>
                           </template>
                       </div>
                   </form>
@@ -64,34 +68,67 @@
 
 <script setup>
 import { ref, reactive } from 'vue';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth';
+import { auth } from '../firebase';
 
 // 定義發送給父元件的事件
 const emit = defineEmits(['login-success']);
 
 const isLogin = ref(true);
+const loading = ref(false);
+const errorMsg = ref('');
 const form = reactive({ username: '', password: '', confirmPassword: '' });
 
 const toggleMode = () => {
   isLogin.value = !isLogin.value;
+  errorMsg.value = '';
   form.username = ''; form.password = ''; form.confirmPassword = '';
 };
 
-const handleSubmit = () => {
-  if (isLogin.value) {
-      // 這裡未來可以串接真實後端 API 檢查帳密
-      console.log('送出登入:', form.username);
-      alert(`歡迎回來，${form.username}！`);
-      
-      // 登入成功！告訴 App.vue 可以切換畫面了
-      emit('login-success', form.username);
-  } else {
-      if (form.password !== form.confirmPassword) {
-          alert('兩次輸入的密碼不一致，請重新檢查！');
-          return;
-      }
-      console.log('送出註冊:', form.username);
-      alert('註冊成功！將為您自動登入。');
-      emit('login-success', form.username);
+// Firebase 錯誤碼轉成中文提示
+const friendlyError = (code) => {
+  const map = {
+    'auth/invalid-email': '電子郵件格式不正確',
+    'auth/user-not-found': '帳號不存在，請先註冊',
+    'auth/wrong-password': '密碼錯誤',
+    'auth/invalid-credential': '帳號或密碼錯誤',
+    'auth/email-already-in-use': '此電子郵件已被註冊',
+    'auth/weak-password': '密碼強度不足（至少 6 個字元）',
+    'auth/too-many-requests': '嘗試次數過多，請稍後再試',
+    'auth/network-request-failed': '網路連線失敗，請檢查網路',
+  };
+  return map[code] || '操作失敗，請稍後再試';
+};
+
+const handleSubmit = async () => {
+  errorMsg.value = '';
+
+  if (!isLogin.value && form.password !== form.confirmPassword) {
+    errorMsg.value = '兩次輸入的密碼不一致，請重新檢查！';
+    return;
+  }
+
+  loading.value = true;
+  try {
+    const action = isLogin.value
+      ? signInWithEmailAndPassword
+      : createUserWithEmailAndPassword;
+    const { user } = await action(auth, form.username, form.password);
+
+    // 取得 Firebase ID Token 供後端 require_auth 驗證
+    const token = await user.getIdToken();
+    localStorage.setItem('authToken', token);
+
+    // 登入成功！告訴父元件可以切換畫面（用 email 當顯示名稱）
+    emit('login-success', user.email || form.username);
+  } catch (err) {
+    console.error('[Auth] 認證失敗:', err?.code, err?.message);
+    errorMsg.value = friendlyError(err?.code);
+  } finally {
+    loading.value = false;
   }
 };
 </script>

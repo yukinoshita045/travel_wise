@@ -1,0 +1,76 @@
+# ── TravelWise — Render Blueprint ────────────────────────────────────
+# 用法：Render Dashboard → New → Blueprint → 連結此 repo，會自動讀此檔
+# 部署的是「後端 Flask API」；前端走 Vercel（見 frontend/vercel.json）
+#
+# ⚠️ 標記 sync:false 的環境變數需在 Render Dashboard 手動填入（不寫進 repo）
+#    其餘有預設值或自動注入
+
+services:
+  # ── Flask 後端（gunicorn）────────────────────────────────
+  - type: web
+    name: travelwise-backend
+    runtime: python
+    plan: free                 # 免費方案；閒置 15 分鐘會休眠，首個請求較慢
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 300 "app:create_app()"
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+
+      # ── 認證模式 ──
+      # false = 正式驗證 Firebase token（依 uid 隔離資料）
+      # true  = 跳過驗證、所有人共用 test-user-001（純展示/測試用）
+      - key: FLASK_TESTING
+        value: "false"
+      - key: FLASK_DEBUG
+        value: "false"
+
+      # ── 前端來源（CORS）：填你的 Vercel 網域，逗號分隔可多個 ──
+      - key: CORS_ORIGINS
+        sync: false
+
+      # ── MongoDB Atlas 連線字串 ──
+      - key: MONGO_URI
+        sync: false
+
+      # ── Firebase Admin SDK ──
+      # 把 firebase_service_account.json 的「整份 JSON 內容」貼進此變數
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+
+      # ── OpenAI（AI 聊天 / 行程規劃）──
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5-mini
+
+      # ── 航班 API（RapidAPI + AviationStack，兩個 key 程式都會讀）──
+      - key: RAPIDAPI_KEY
+        sync: false
+      - key: AVIATIONSTACK_API_KEY
+        sync: false
+
+      # ── 景點 API（選用）──
+      - key: OPENTRIPMAP_API_KEY
+        sync: false
+
+      # ── Redis（由下方 keyvalue 服務自動注入連線字串）──
+      - key: REDIS_URL
+        fromService:
+          name: travelwise-redis
+          type: keyvalue
+          property: connectionString
+
+  # ── Redis 快取（天氣 / 景點）──────────────────────────────
+  # Redis 失效時程式會自動 graceful degrade，不影響主流程。
+  # 若不想用 Redis：刪除此服務 + 上方 REDIS_URL 那段 envVar 即可。
+  - type: keyvalue
+    name: travelwise-redis
+    plan: free
+    ipAllowList: []            # 空陣列 = 只允許 Render 內部服務存取
+    maxmemoryPolicy: allkeys-lru

@@ -35,8 +35,9 @@ services:
     environment:
       # Redis 指向容器內的 redis service（覆蓋 .env 的 localhost 設定）
       REDIS_URL: redis://redis:6379/0
-      # 開發模式：跳過 Firebase 驗證（Bearer TEST_MODE 即可存取所有 API）
-      FLASK_TESTING: "true"
+      # 注意：FLASK_TESTING 改由 backend/.env 控制（不在此寫死，讓每位開發者可個別調整）
+      #   FLASK_TESTING=false → 正式驗證 Firebase ID Token，依 uid 隔離各使用者資料（預設）
+      #   FLASK_TESTING=true  → 跳過驗證、所有人共用 test-user-001（純後端/單機開發用，會混資料）
     volumes:
       # 掛載 firebase service account（不 commit，本機需要此檔案）
       - ./backend/firebase_service_account.json:/app/firebase_service_account.json:ro

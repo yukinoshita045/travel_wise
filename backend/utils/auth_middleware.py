@@ -20,10 +20,21 @@ def _init_firebase():
     global _firebase_initialized
     if _firebase_initialized:
         return
-    service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH")
-    if not service_account_path:
-        raise EnvironmentError("FIREBASE_SERVICE_ACCOUNT_PATH 未設定")
-    cred = credentials.Certificate(service_account_path)
+
+    # 雲端部署（Render/Vercel）優先：直接從環境變數讀 service account JSON 字串，
+    # 避免把金鑰檔 commit 進 repo。本機開發則 fallback 用檔案路徑。
+    service_account_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+    if service_account_json:
+        import json
+        cred = credentials.Certificate(json.loads(service_account_json))
+    else:
+        service_account_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH")
+        if not service_account_path:
+            raise EnvironmentError(
+                "FIREBASE_SERVICE_ACCOUNT_JSON 或 FIREBASE_SERVICE_ACCOUNT_PATH 至少需設定一個"
+            )
+        cred = credentials.Certificate(service_account_path)
+
     firebase_admin.initialize_app(cred)
     _firebase_initialized = True
     logger.info("Firebase Admin SDK 初始化完成 ✅")

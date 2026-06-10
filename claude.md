@@ -246,15 +246,39 @@ pytest tests/integration/          # 只跑整合測試
 - ✅ 前端狀態透過 `travelStore.js` + `localStorage` 串聯各頁面
 - ✅ AI 聊天（ChatPanel）整合進 ItineraryPage
 
+### ✅ 已完成：Firebase 真實認證（2026-06-08）
+- `Auth.vue` 已接 Firebase Authentication（Email/密碼註冊 + 登入），登入後存真實 ID Token 至 `localStorage.authToken`
+- 後端 `FLASK_TESTING=false` 時正式驗證 token，各使用者旅程依 `uid` 隔離（詳見下方「開發者注意事項」）
+
 ### 待處理 / 已知限制（詳見 Section 13 & 14）
 
 - 🔴 `ChatPanel.vue:177-189` MOCK 擋住 `/api/chat`（刪掉即可啟用）
-- 🔴 `Auth.vue` 沒有真實 Firebase 認證，`authToken` 永遠不會被設定
 - ❌ `FlightPage` 沒有「新增/查詢航班」UI；`/api/flight/info` 後端已就緒但前端未串
 - ❌ `TripPlan.vue` 走 ChatPanel（`/api/chat`），`/api/trip/plan` 沒有前端入口
 - ❌ `/api/budget`、`/api/places`（前端獨立呼叫）完全未串聯
 - ⚠️  `ChatPanel.vue` tripParams 已改為讀真實 trip 資料（舊問題已修）
 - ⚠️  後端 MongoDB 相關 API（itinerary、trip、chat）需 `MONGO_URI`，無連線時回 500
+
+### 🔑 開發者注意事項（認證上線後，組員必讀）
+
+開啟真實認證後，**整個前端被 Firebase 登入畫面擋住**，組員開發前需先設定：
+
+1. **前端設定**：`cd frontend && cp .env.example .env`
+   （`.env.example` 已含可直接使用的 Firebase web 設定，apiKey 為公開值）
+
+2. **共用開發帳號**（免自己註冊，登入畫面直接輸入即可）：
+   - 帳號：`dev@travelwise.com`
+   - 密碼：`TravelWiseDev2026!`
+   - ⚠️ 共用帳號 = 共用資料，多人同時用會看到彼此的旅程；要獨立資料請各自用 app 註冊新帳號
+
+3. **認證模式切換**（`backend/.env` 的 `FLASK_TESTING`，不再寫死在 docker-compose）：
+   - `FLASK_TESTING=false`（預設）→ 正式驗證 token，依 `uid` 隔離各使用者資料
+   - `FLASK_TESTING=true` → 跳過驗證、所有人共用 `test-user-001`（純後端 API / 單機開發用）
+   - 純打後端 API（Swagger / curl）可用 `Authorization: Bearer TEST_MODE` 跳過，無需 token
+
+4. **已知限制**：
+   - Firebase ID Token 約 **1 小時過期**，目前未自動續期，掛太久後 API 會回 401 需重新登入
+   - `backend/firebase_service_account.json` 的 private key 目前無法做 Admin **寫入**操作（`create_user` 等會回 `Invalid JWT Signature`）；但**驗證 token（登入）不受影響**。若日後需要 Admin 寫入功能，需到 Firebase 主控台重新產生 service account 金鑰
 
 ---
 
